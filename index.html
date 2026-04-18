@@ -644,13 +644,6 @@ const DEPT_DEFS = {
       {role:"Containment Engineer",lvl:"LVL-2",cost:1250,key:false,max:25,start:3},
     ]
   },
-  medical:{
-    label:"Medical Department",col:"#4466aa",
-    roles:[
-      {role:"Chief Medical Officer",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
-      {role:"Medical Officer",lvl:"LVL-2",cost:1000,key:false,max:20,start:2},
-    ]
-  },
   admin:{
     label:"Administration",col:"#887755",
     roles:[
@@ -741,8 +734,8 @@ function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Conta
 // ══════════════════════════════════════════════════════
 function causeCasualty(source) {
   const prio = source==='research'
-    ? ['research','security','containment','medical']
-    : ['security','containment','research','medical'];
+    ? ['research','security','containment']
+    : ['security','containment','research'];
   for (const dk of prio) {
     const avail = G.depts[dk].roles.filter(r=>r.count>0);
     if (!avail.length) continue;
@@ -921,7 +914,7 @@ function tick() {
     G.hour=0; G.day++;
     G.budget -= dailyCost();
     tickResearch();
-    G.performance = Math.min(100, G.performance+0.5);
+    G.performance = Math.min(100, G.performance+1.25);
     if (G.day>=G.nextGrantDay) processGrant();
     if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
     if (G.budget < -500000) {
@@ -1159,7 +1152,7 @@ function renderReports() {
       <div style="font-size:10px;color:var(--txt);line-height:2">
         Each breach: −6% · Each casualty: −3%<br>
         Research complete: +5% · Recontainment: +2%<br>
-        Daily recovery: +0.4%/day · Budget deficit: −5%/day<br>
+        Daily recovery: +1.25%/day · Budget deficit: −5%/day<br>
         Research funding: extra income on completion
       </div>
     </div>`;
