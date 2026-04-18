@@ -914,7 +914,7 @@ function tick() {
     G.hour=0; G.day++;
     G.budget -= dailyCost();
     tickResearch();
-    G.performance = Math.min(100, G.performance+1.25);
+    G.performance = Math.min(100, G.performance+1);
     if (G.day>=G.nextGrantDay) processGrant();
     if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
     if (G.budget < -500000) {
