@@ -654,7 +654,7 @@ const BALANCE = {
   researchDaily: 0.5,
   researchInit: 0.80,
   researchSpeed: 2.15,
-  processSpeed: 1,
+  processSpeed: 0.7,
 };
 
 const DEPT_DEFS = {
@@ -769,7 +769,7 @@ function dailyResearch() {
 }
 function dailyCost() { return dailyPersonnel()+dailySCP()+dailyResearch(); }
 function researchers() { return G.depts.research.roles.reduce((s,r)=>s+r.count,0); }
-function researchFunding(cls) { return Math.round((cls==='Safe'?10000:cls==='Euclid'?20000:40000) * BALANCE.processSpeed); }
+function researchFunding(cls) { return Math.round((cls==='Safe'?20000:cls==='Euclid'?40000:100000) * BALANCE.processSpeed); }
 function security() { return G.depts.security.roles.reduce((s,r)=>s+r.count,0); }
 function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Containment Engineer")||{count:0}).count; }
 
