@@ -532,7 +532,7 @@ body.mobile .lt{min-width:54px}
   <div class="h-stats">
     <div class="hst"><div class="hst-lbl">Day</div><div class="hst-val" id="hDay">1</div></div>
     <div class="hst"><div class="hst-lbl">Time</div><div class="hst-val" id="hTime">00:00</div></div>
-    <div class="hst"><div class="hst-lbl">Budget</div><div class="hst-val green" id="hBudget">$3,000,000</div></div>
+    <div class="hst"><div class="hst-lbl">Budget</div><div class="hst-val green" id="hBudget">$2,500,000</div></div>
     <div class="hst"><div class="hst-lbl">Daily Cost</div><div class="hst-val red" id="hCost">$50,980</div></div>
     <div class="hst"><div class="hst-lbl">Personnel</div><div class="hst-val" id="hPers">47</div></div>
     <div class="hst"><div class="hst-lbl">SCPs</div><div class="hst-val" id="hScps">3</div></div>
@@ -703,13 +703,13 @@ function initState(siteNum) {
     scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   }
   G = {
-    siteNum, day:1, hour:0, budget:2000000,
+    siteNum, day:1, hour:0, budget:2500000,
     performance:75,
     depts, scps,
     scpQueue: [...SCP_QUEUE_DEFS],
     nextScpDay: 40,
     nextGrantDay: 30,
-    grantBase: 2200000,
+    grantBase: 2500000,
     activeBreaches: [],
     totalCasualties:0, totalBreaches:0, totalResearch:0, researchFundsEarned:0,
     log:[], paused:false, over:false, speed:1,
@@ -758,7 +758,12 @@ function dailyResearch() {
     return s + (sc.cls==='Keter'?2600:sc.cls==='Euclid'?1200:500);
   }, 0);
 }
-function dailyCost() { return dailyPersonnel()+dailySCP()+dailyResearch(); }
+function dailyPower() {
+  const scpLoad = Object.keys(G.scps).length * 2000;
+  const breachLoad = G.activeBreaches.length * 5000;
+  return 14000 + scpLoad + breachLoad;
+}
+function dailyCost() { return dailyPersonnel()+dailySCP()+dailyResearch()+dailyPower(); }
 function researchers() { return G.depts.research.roles.reduce((s,r)=>s+r.count,0); }
 function researchFunding(cls) { return Math.round((cls==='Safe'?20000:cls==='Euclid'?40000:100000) * BALANCE.processSpeed); }
 function security() { return G.depts.security.roles.reduce((s,r)=>s+r.count,0); }
@@ -779,7 +784,7 @@ function causeCasualty(source) {
     tgt.count--;
     tgt.totalKia++;
     G.totalCasualties++;
-    G.performance = Math.max(0, G.performance-2.5);
+    G.performance = Math.max(0, G.performance-1);
     const src = source==='research'?'research accident':`${source} breach`;
     addLog(`CASUALTY: ${tgt.role} (${DEPT_DEFS[dk].label}) KIA — ${src}`, 'dead');
     notify('☠ PERSONNEL KIA', `${tgt.role} lost during ${src}`, 'dead', 6500);
@@ -982,7 +987,7 @@ function addSCP() {
 // O5 GRANT
 // ══════════════════════════════════════════════════════
 function processGrant() {
-  const mod = 0.5 + (G.performance/100);
+  const mod = 1 + ((G.performance-50)/250);
   const grant = Math.round(G.grantBase * mod);
   G.budget += grant;
   G.nextGrantDay = G.day + 30;
@@ -1009,7 +1014,7 @@ function tick() {
     }
     if (G.budget < 0) {
       addLog('WARNING: Budget in deficit. Austerity measures required.', 'warn');
-      G.performance = Math.max(0, G.performance-5);
+      G.performance = Math.max(0, G.performance-4);
     }
     // All personnel wiped check
     const allDead = Object.values(G.depts).every(d => d.roles.reduce((s,r)=>s+r.count,0)===0);
@@ -1150,7 +1155,7 @@ function renderSCPs() {
 function renderFinance() {
   const pD=dailyPersonnel(), sD=dailySCP(), rD=dailyResearch(), tD=dailyCost();
   const dToG = Math.max(0, G.nextGrantDay-G.day);
-  const proj = Math.round(G.grantBase*(0.5+G.performance/100));
+  const proj = Math.round(G.grantBase*(1+((G.performance-50)/250)));
   const gPct = Math.min(100,((30-dToG)/30*100)).toFixed(0);
   const budget = G.budget;
   const bCol = budget<0?'var(--red2)':budget<200000?'var(--orange3)':'var(--green3)';
@@ -1165,6 +1170,7 @@ function renderFinance() {
       <div class="frow"><span class="fl">Personnel Salaries</span><span class="fv exp">${fmt$(pD)}</span></div>
       <div class="frow"><span class="fl">SCP Containment</span><span class="fv exp">${fmt$(sD)}</span></div>
       <div class="frow"><span class="fl">Research Operations</span><span class="fv exp">${fmt$(rD)}</span></div>
+      <div class="frow"><span class="fl">Power Systems</span><span class="fv exp">${fmt$(dailyPower())}</span></div>
       <div class="ftotal"><span>Total Daily</span><span class="fv exp">${fmt$(tD)}</span></div>
     </div>
     <div class="fsec">
@@ -1172,7 +1178,7 @@ function renderFinance() {
       <div class="frow"><span class="fl">Next transfer in</span><span class="fv neu">${dToG} days</span></div>
       <div class="gbar-track"><div class="gbar-fill" style="width:${gPct}%"></div></div>
       <div class="frow"><span class="fl">Projected grant</span><span class="fv inc">${fmt$(proj)}</span></div>
-      <div class="frow"><span class="fl">Performance modifier</span><span class="fv neu">×${(0.5+G.performance/100).toFixed(2)}</span></div>
+      <div class="frow"><span class="fl">Performance modifier</span><span class="fv neu">×${(1+((G.performance-50)/250)).toFixed(2)}</span></div>
     </div>
     <div class="fsec">
       <div class="fhd">Research Funding</div>
@@ -1246,8 +1252,9 @@ function renderReports() {
       <div style="font-size:10px;color:var(--txt);line-height:2">
         Each breach: −5% · Each casualty: −1%<br>
         Research complete: +5% · Recontainment: +3%<br>
-        Daily recovery: +1%/day · Budget deficit: −5%/day<br>
-        Research funding: extra income on completion
+        Daily recovery: +1%/day · Budget deficit: −4%/day<br>
+        Research funding: extra income on completion<br>
+        Power systems: daily operating cost
       </div>
     </div>`;
 }
