@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SCP Foundation — Site Director Interface</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#070707;--panel:#0d0d0d;--panel2:#111;
+  --b1:#1c1c1c;--b2:#282828;--b3:#333;
+  --red:#bb0000;--red2:#dd3333;--red3:#ff5555;
+  --orange:#bb6600;--orange2:#dd8800;--orange3:#ffaa22;
+  --green:#0a6630;--green2:#0d8840;--green3:#22cc66;
+  --blue:#1a4a7a;--blue2:#2266aa;--blue3:#44aaee;
+  --purple:#4a2a7a;--purple2:#6633aa;--purple3:#aa66ff;
+  --txt:#999;--txt2:#bbb;--txt3:#ddd;--txt4:#fff;
+  --dim:#444;--dim2:#555;--dim3:#666;
+  --safe:#0d7040;--euclid:#aa6600;--keter:#990000;
+}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:'Courier New',Courier,monospace;
+  font-size:13px;height:100vh;overflow:hidden;
+  display:flex;flex-direction:column;
+  image-rendering:pixelated;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-corner{background:#080808}
+::-webkit-scrollbar-track{background:#0b0b0b;border:1px solid #1a1a1a}
+::-webkit-scrollbar-thumb{background:#4a4a4a;border:2px solid #0b0b0b;border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:#666}
+*{scrollbar-color:#4a4a4a #0b0b0b;scrollbar-width:thin}
+
+/* ── SCANLINE overlay ── */
+body::after{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.04) 2px,rgba(0,0,0,.04) 4px);
+  pointer-events:none;z-index:9999;
+}
+
+/* ── MODAL ── */
+#startModal{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.97);
+  display:flex;align-items:center;justify-content:center;
+  z-index:5000;
+}
+.m-box{
+  max-width:540px;width:92%;
+  border:1px solid var(--red);
+  background:var(--panel);padding:28px 32px;text-align:center;
+}
+.m-logo{margin:0 auto 16px;display:block}
+.m-title{color:var(--red);font-size:22px;letter-spacing:5px;margin-bottom:4px}
+.m-sub{color:var(--dim3);font-size:10px;letter-spacing:2px;margin-bottom:18px}
+.m-brief{
+  text-align:left;font-size:10px;line-height:1.75;
+  border:1px solid var(--b2);padding:12px 14px;
+  background:#060606;margin-bottom:16px;color:var(--txt2);
+}
+.m-brief b{color:var(--red2)}
+.m-lbl{color:var(--dim3);font-size:10px;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+.site-grid{
+  display:grid;grid-template-columns:repeat(13,1fr);
+  gap:3px;margin-bottom:16px;
+}
+.sb{
+  background:#090909;border:1px solid var(--b1);
+  color:var(--dim2);font-family:inherit;font-size:10px;
+  padding:5px 2px;cursor:pointer;transition:all .12s;
+}
+.sb:hover{background:#1a0000;border-color:var(--red);color:var(--txt3)}
+.sb.sel{background:var(--red);border-color:var(--red2);color:#fff;font-weight:bold}
+#startBtn{
+  width:100%;background:var(--red);border:none;color:#fff;
+  font-family:inherit;font-size:11px;padding:11px;
+  cursor:pointer;letter-spacing:3px;text-transform:uppercase;
+  transition:background .2s;
+}
+#startBtn:hover{background:var(--red2)}
+#startBtn:disabled{background:#1a1a1a;color:var(--dim);cursor:not-allowed}
+
+/* ── GAME OVER ── */
+#gameOver{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.96);z-index:4999;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;
+}
+#gameOver.show{display:flex}
+.go-title{color:var(--red);font-size:28px;letter-spacing:6px}
+.go-msg{color:var(--txt2);font-size:12px;max-width:420px;text-align:center;line-height:1.7}
+.go-stats{color:var(--txt3);font-size:12px;text-align:center;line-height:2;
+  border:1px solid var(--b2);padding:12px 24px;background:var(--panel)}
+.go-restart{
+  background:var(--red);border:none;color:#fff;
+  font-family:inherit;font-size:11px;padding:10px 28px;
+  cursor:pointer;letter-spacing:2px;
+}
+
+/* ── ALERT BANNER ── */
+#alertBanner{
+  display:none;flex-shrink:0;
+  background:var(--red);color:#fff;text-align:center;
+  padding:5px;font-size:10px;letter-spacing:3px;
+  animation:blink .9s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.65}}
+
+/* ── HEADER ── */
+#header{
+  flex-shrink:0;background:#0b0b0b;
+  border-bottom:1px solid var(--red);
+  padding:6px 12px;display:flex;
+  align-items:center;justify-content:space-between;gap:8px;
+}
+.h-brand{display:flex;align-items:center;gap:9px}
+.h-site{color:var(--red);font-size:17px;font-weight:bold;letter-spacing:3px;line-height:1}
+.h-sitesub{color:var(--dim3);font-size:9px;letter-spacing:2px}
+.h-stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.hst{text-align:center}
+.hst-lbl{color:var(--dim3);font-size:9px;letter-spacing:1px;text-transform:uppercase}
+.hst-val{color:var(--txt3);font-size:14px;font-weight:bold;line-height:1.3}
+.hst-val.red{color:var(--red2)}
+.hst-val.yellow{color:var(--orange3)}
+.hst-val.green{color:var(--green3)}
+.perf-wrap{display:flex;align-items:center;gap:5px;font-size:11px}
+.perf-track{width:72px;height:5px;background:var(--b1);border-radius:2px;overflow:hidden}
+.perf-fill{height:100%;border-radius:2px;transition:width .4s,background .4s}
+.spd-btns{display:flex;gap:3px}
+.spd-btn{
+  background:var(--panel);border:1px solid var(--b2);
+  color:var(--dim2);font-family:inherit;font-size:9px;
+  padding:3px 7px;cursor:pointer;
+}
+.spd-btn.on{border-color:var(--orange);color:var(--orange)}
+
+/* ── MAIN LAYOUT ── */
+#main{
+  flex:1;display:grid;
+  grid-template-columns:265px 1fr 285px;
+  overflow:hidden;gap:1px;background:var(--b1);
+  min-height:0;
+}
+.panel{background:var(--panel);overflow-y:auto;padding:9px 10px;min-height:0}
+.ptitle{
+  color:var(--orange2);font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;border-bottom:1px solid var(--b2);
+  padding-bottom:5px;margin-bottom:8px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+
+/* ── LEFT: PERSONNEL ── */
+.dept{margin-bottom:10px}
+.dept-hd{
+  font-size:9px;letter-spacing:1.5px;text-transform:uppercase;
+  padding:3px 0 4px;border-bottom:1px solid var(--b1);margin-bottom:3px;
+  display:flex;justify-content:space-between;
+}
+.prow{
+  display:flex;align-items:center;
+  padding:3px 0;border-bottom:1px solid #0f0f0f;
+}
+.pinfo{flex:1;min-width:0}
+.prole{color:var(--txt2);font-size:11px}
+.plvl{color:var(--dim3);font-size:9px}
+.pkia{color:var(--red2);font-size:9px;font-weight:bold}
+.pcount{color:var(--orange3);font-size:13px;min-width:22px;text-align:center}
+.pbtn{
+  background:none;border:1px solid;
+  font-family:inherit;font-size:10px;padding:2px 5px;cursor:pointer;
+  line-height:1;
+}
+.pbtn.hire{border-color:var(--green);color:var(--green)}
+.pbtn.hire:hover{background:var(--green);color:#000}
+.pbtn.hire:disabled{opacity:.25;cursor:not-allowed}
+.pbtn.fire{border-color:var(--b3);color:var(--dim3);margin-right:2px}
+.pbtn.fire:hover{border-color:var(--red);color:var(--red)}
+.pbtn.fire:disabled{opacity:.25;cursor:not-allowed}
+.key-tag{
+  font-size:7px;border:1px solid #432;
+  color:#965;padding:0 3px;margin-left:3px;
+}
+
+/* ── CENTER: SCPs ── */
+.scard{
+  border:1px solid var(--b2);margin-bottom:7px;
+  background:var(--panel2);padding:8px;
+  transition:border-color .3s;
+}
+.scard.breaching{
+  border-color:var(--red);
+  animation:spulse 1.3s infinite;
+}
+@keyframes spulse{
+  0%,100%{box-shadow:0 0 6px rgba(180,0,0,.25)}
+  50%{box-shadow:0 0 18px rgba(200,0,0,.55)}
+}
+.sc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.sc-id{color:var(--txt4);font-size:13px;font-weight:bold}
+.sc-hd-r{display:flex;align-items:center;gap:5px}
+.cls-badge{font-size:9px;padding:2px 6px;font-weight:bold;letter-spacing:.5px}
+.cls-Safe{background:var(--safe);color:#cef}
+.cls-Euclid{background:var(--euclid);color:#ffe}
+.cls-Keter{background:var(--keter);color:#fff}
+.sc-name{font-size:10px;color:var(--dim3);margin-bottom:5px}
+.sc-desc{font-size:10px;color:var(--txt);font-style:italic;margin-bottom:5px;line-height:1.5}
+.sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:9px;margin-bottom:5px}
+.sg-l{color:var(--dim2);text-transform:uppercase;letter-spacing:.5px;font-size:10px}
+.sg-v{color:var(--txt2);font-size:10px}
+.risk-track{height:3px;background:var(--b1);border-radius:1px;margin:3px 0 2px;overflow:hidden}
+.risk-fill{height:100%;border-radius:1px;transition:width .5s,background .5s}
+.res-track{height:3px;background:var(--b1);border-radius:1px;margin:2px 0;overflow:hidden}
+.res-fill{height:100%;background:linear-gradient(90deg,#123,#246);transition:width 1s}
+.res-lbl{font-size:9px;color:var(--blue3);margin-bottom:5px}
+.sc-btns{display:flex;gap:4px;flex-wrap:wrap}
+.sc-btn{
+  background:var(--bg);border:1px solid var(--b2);
+  color:var(--txt);font-family:inherit;font-size:10px;
+  padding:3px 8px;cursor:pointer;letter-spacing:.5px;text-transform:uppercase;
+}
+.sc-btn:hover{border-color:var(--orange);color:var(--orange)}
+.sc-btn.danger{border-color:var(--red);color:var(--red)}
+.sc-btn.danger:hover{background:#0a0000}
+.sc-btn:disabled{opacity:.3;cursor:not-allowed}
+.breach-tag{color:var(--red2);font-size:9px;font-weight:bold;animation:blink .8s infinite}
+.contained-tag{color:var(--green3);font-size:9px}
+
+/* ── RIGHT PANEL ── */
+.tabs{display:flex;gap:1px;margin-bottom:7px}
+.tab{
+  background:#090909;border:1px solid var(--b1);
+  color:var(--dim3);font-family:inherit;font-size:9px;
+  padding:4px 10px;cursor:pointer;letter-spacing:1px;text-transform:uppercase;
+}
+.tab.on{border-color:var(--orange);color:var(--orange2);background:rgba(180,80,0,.06)}
+.tcont{display:none}
+.tcont.on{display:block}
+
+/* Finance */
+.fsec{margin-bottom:10px}
+.fhd{
+  font-size:9px;color:var(--dim3);letter-spacing:1px;text-transform:uppercase;
+  border-bottom:1px solid var(--b1);padding-bottom:3px;margin-bottom:5px;
+}
+.frow{
+  display:flex;justify-content:space-between;
+  font-size:10px;padding:2px 0;border-bottom:1px solid #0c0c0c;
+}
+.fl{color:var(--txt)}
+.fv{font-weight:bold}
+.fv.exp{color:#f55}
+.fv.inc{color:var(--green3)}
+.fv.neu{color:var(--txt2)}
+.ftotal{
+  display:flex;justify-content:space-between;
+  font-size:10px;padding:4px 0;margin-top:1px;
+  border-top:1px solid var(--b2);
+}
+.gbar-track{height:4px;background:var(--b1);border-radius:2px;overflow:hidden;margin:5px 0}
+.gbar-fill{height:100%;background:var(--purple2);transition:width 1s}
+
+/* Research */
+.ritem{
+  border:1px solid var(--b1);background:#090909;
+  padding:7px;margin-bottom:7px;
+}
+.ri-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px}
+.ri-id{color:var(--txt2);font-size:10px;font-weight:bold}
+.ri-sta{font-size:9px;padding:1px 5px;border:1px solid}
+.ri-sta.active{color:var(--blue3);border-color:var(--blue2)}
+.ri-sta.done{color:var(--green3);border-color:var(--green)}
+.ri-sta.idle{color:var(--dim3);border-color:var(--b2)}
+.ri-prog-track{height:4px;background:var(--b1);border-radius:2px;overflow:hidden;margin:5px 0}
+.ri-prog-fill{height:100%;background:linear-gradient(90deg,#124,#248);transition:width 1s}
+.ri-meta{display:flex;gap:10px;font-size:9px;color:var(--dim3)}
+.ri-meta span{color:var(--txt)}
+
+/* ── LOG ── */
+#log{
+  flex-shrink:0;height:125px;background:#080808;
+  border-top:1px solid var(--b1);padding:5px 10px;
+  overflow-y:auto;
+}
+.lrow{
+  font-size:9px;padding:1px 0;border-bottom:1px solid #0c0c0c;
+  display:flex;gap:7px;
+}
+.lt{color:var(--dim);flex-shrink:0;min-width:65px;font-size:10px}
+.lm{color:var(--txt);font-size:10px}
+.lrow.breach .lm{color:var(--red2)}
+.lrow.warn .lm{color:var(--orange3)}
+.lrow.ok .lm{color:var(--green3)}
+.lrow.info .lm{color:var(--blue3)}
+.lrow.o5 .lm{color:var(--purple3)}
+.lrow.dead .lm{color:var(--red3);font-weight:bold}
+.lrow.newscp .lm{color:var(--orange2);font-weight:bold}
+
+/* ── NOTIFICATIONS ── */
+#notifs{
+  position:fixed;bottom:134px;right:10px;
+  z-index:800;display:flex;flex-direction:column;gap:5px;max-width:270px;
+}
+.notif{
+  background:var(--panel2);border:1px solid var(--b2);
+  padding:9px 11px;
+  animation:nslide .25s ease;
+}
+.notif.breach{border-color:var(--red)}
+.notif.o5{border-color:var(--purple2)}
+.notif.newscp{border-color:var(--orange2)}
+.notif.dead{border-color:var(--red2)}
+.notif.ok{border-color:var(--green)}
+.nt{font-size:11px;font-weight:bold;margin-bottom:2px}
+.notif.breach .nt{color:var(--red2)}
+.notif.o5 .nt{color:var(--purple3)}
+.notif.newscp .nt{color:var(--orange3)}
+.notif.dead .nt{color:var(--red3)}
+.notif.ok .nt{color:var(--green3)}
+.nb{font-size:10px;color:var(--txt);line-height:1.4}
+@keyframes nslide{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.no-scp{color:var(--dim);font-size:10px;text-align:center;padding:24px;font-style:italic}
+
+/* budget color states */
+.budget-crit{color:var(--red2) !important}
+.budget-warn{color:var(--orange3) !important}
+.budget-ok{color:var(--green3) !important}
+</style>
+</head>
+<body>
+
+<!-- SITE SELECTION MODAL -->
+<div id="startModal">
+<div class="m-box">
+  <svg class="m-logo" width="60" height="60" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="47" fill="none" stroke="#bb0000" stroke-width="3"/>
+    <polygon points="50,12 58,28 54,28 54,46 46,46 46,28 42,28" fill="#bb0000"/>
+    <polygon points="50,12 58,28 54,28 54,46 46,46 46,28 42,28" fill="#bb0000" transform="rotate(120 50 50)"/>
+    <polygon points="50,12 58,28 54,28 54,46 46,46 46,28 42,28" fill="#bb0000" transform="rotate(240 50 50)"/>
+    <circle cx="50" cy="50" r="11" fill="#bb0000"/>
+  </svg>
+  <div class="m-title">SCP FOUNDATION</div>
+  <div class="m-sub">SITE DIRECTOR MANAGEMENT INTERFACE · CLEARANCE LEVEL 5</div>
+  <div class="m-brief">
+    You have been appointed <b>Site Director</b>. Your facility contains anomalous entities, conducts
+    research, and manages Foundation personnel.<br><br>
+    The <b>O5 Council</b> monitors your performance and adjusts budget disbursements accordingly.
+    Containment breaches cost lives and funding. Failure to maintain solvency will result in
+    <b>site decommission</b>.<br><br>
+    <b>NOTICE:</b> Personnel may be killed in service. Replace casualties promptly. Research reduces
+    long-term breach risk but carries its own hazards.
+  </div>
+  <div class="m-lbl">Select Your Site Designation:</div>
+  <div class="site-grid" id="siteGrid"></div>
+  <button id="startBtn" disabled onclick="startGame()">▶ ASSUME COMMAND</button>
+</div>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOver">
+  <div class="go-title">SITE DECOMMISSIONED</div>
+  <div class="go-msg" id="goMsg"></div>
+  <div class="go-stats" id="goStats"></div>
+  <button class="go-restart" onclick="location.reload()">↺ NEW ASSIGNMENT</button>
+</div>
+
+<!-- BREACH ALERT -->
+<div id="alertBanner">⚠ CONTAINMENT BREACH IN PROGRESS — ALL PERSONNEL TO STATIONS ⚠</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="h-brand">
+    <svg width="32" height="32" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="47" fill="none" stroke="#bb0000" stroke-width="2.5"/>
+      <polygon points="50,12 58,28 54,28 54,46 46,46 46,28 42,28" fill="#bb0000"/>
+      <polygon points="50,12 58,28 54,28 54,46 46,46 46,28 42,28" fill="#bb0000" transform="rotate(120 50 50)"/>
+      <polygon points="50,12 58,28 54,28 54,46 46,46 46,28 42,28" fill="#bb0000" transform="rotate(240 50 50)"/>
+      <circle cx="50" cy="50" r="11" fill="#bb0000"/>
+    </svg>
+    <div>
+      <div class="h-site" id="hSite">SITE-██</div>
+      <div class="h-sitesub">SCP FOUNDATION · SECURE · CONTAIN · PROTECT</div>
+    </div>
+  </div>
+  <div class="h-stats">
+    <div class="hst"><div class="hst-lbl">Day</div><div class="hst-val" id="hDay">1</div></div>
+    <div class="hst"><div class="hst-lbl">Time</div><div class="hst-val" id="hTime">00:00</div></div>
+    <div class="hst"><div class="hst-lbl">Budget</div><div class="hst-val green" id="hBudget">$750,000</div></div>
+    <div class="hst"><div class="hst-lbl">Daily Cost</div><div class="hst-val red" id="hCost">—</div></div>
+    <div class="hst"><div class="hst-lbl">Personnel</div><div class="hst-val" id="hPers">0</div></div>
+    <div class="hst"><div class="hst-lbl">SCPs</div><div class="hst-val" id="hScps">0</div></div>
+    <div class="hst">
+      <div class="hst-lbl">Performance</div>
+      <div class="perf-wrap">
+        <div class="perf-track"><div class="perf-fill" id="perfFill"></div></div>
+        <span id="perfVal" style="font-size:10px;color:var(--txt2)">75%</span>
+      </div>
+    </div>
+    <div class="hst">
+      <div class="hst-lbl">Speed</div>
+      <div class="spd-btns">
+        <button class="spd-btn" id="spd0" onclick="setSpeed(0)">⏸</button>
+        <button class="spd-btn on" id="spd1" onclick="setSpeed(1)">1×</button>
+        <button class="spd-btn" id="spd3" onclick="setSpeed(3)">3×</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="panel" id="leftPanel">
+    <div class="ptitle">Personnel Management<span id="salaryTot" style="color:var(--dim3)"></span></div>
+    <div id="persContent"></div>
+  </div>
+  <div class="panel" id="centerPanel">
+    <div class="ptitle">Anomaly Containment Status<span id="breachCount" style="color:var(--red2)"></span></div>
+    <div id="scpContent"></div>
+  </div>
+  <div class="panel" id="rightPanel">
+    <div class="tabs">
+      <button class="tab on" onclick="setTab('finance')">Finance</button>
+      <button class="tab" onclick="setTab('research')">Research</button>
+      <button class="tab" onclick="setTab('reports')">Reports</button>
+    </div>
+    <div class="tcont on" id="tc-finance"></div>
+    <div class="tcont" id="tc-research"></div>
+    <div class="tcont" id="tc-reports"></div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div id="log"></div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifs"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════
+const SCP_DB = {
+  "SCP-173":{name:"The Sculpture",cls:"Euclid",
+    desc:"Animate concrete entity. Immobile while directly observed.",
+    bBase:.0038,casualty:.35,cCost:4500,rCost:45000,risk:.08},
+  "SCP-096":{name:"The Shy Guy",cls:"Euclid",
+    desc:"Docile until its face is viewed. Extreme aggression during SCP-096-1 events.",
+    bBase:.003,casualty:.45,cCost:3500,rCost:42000,risk:.12},
+  "SCP-131":{name:"Eye Pods (A & B)",cls:"Safe",
+    desc:"Pair of small cyclopic entities. Docile. Assists staff in monitoring hazards.",
+    bBase:.0004,casualty:0,cCost:500,rCost:3000,risk:0},
+  "SCP-049":{name:"The Plague Doctor",cls:"Euclid",
+    desc:"Robed humanoid claiming to cure 'the Pestilence'. Touch causes immediate death.",
+    bBase:.0042,casualty:.5,cCost:4200,rCost:55000,risk:.14},
+  "SCP-999":{name:"The Tickle Monster",cls:"Safe",
+    desc:"Amorphous orange mass. Highly docile. Improves morale in nearby personnel.",
+    bBase:.0002,casualty:0,cCost:400,rCost:3500,risk:0},
+  "SCP-106":{name:"The Old Man",cls:"Keter",
+    desc:"Elderly humanoid capable of phasing through solid matter. Extreme aggression.",
+    bBase:.012,casualty:.72,cCost:12000,rCost:165000,risk:.3},
+  "SCP-682":{name:"Hard-to-Destroy Reptile",cls:"Keter",
+    desc:"Massive reptilian entity. Extreme hostility to all life. Near-indestructible.",
+    bBase:.015,casualty:.85,cCost:20000,rCost:290000,risk:.4},
+  "SCP-914":{name:"The Clockworks",cls:"Safe",
+    desc:"Large mechanical device. Refines or alters objects placed in the intake booth.",
+    bBase:.0001,casualty:0,cCost:600,rCost:9000,risk:0},
+  "SCP-079":{name:"Old AI",cls:"Euclid",
+    desc:"Primitive AI on isolated hardware. Capable of manipulating facility systems.",
+    bBase:.005,casualty:.22,cCost:5500,rCost:62000,risk:.05},
+  "SCP-076":{name:"Able",cls:"Keter",
+    desc:"Humanoid entity of anomalous origin. Superhuman combat ability. Hostile.",
+    bBase:.01,casualty:.78,cCost:10000,rCost:135000,risk:.25},
+  "SCP-035":{name:"Possessive Mask",cls:"Keter",
+    desc:"Theatrical mask that possesses hosts through direct contact. Hosts deteriorate.",
+    bBase:.008,casualty:.6,cCost:8000,rCost:95000,risk:.2},
+  "SCP-507":{name:"Reluctant Dimension Hopper",cls:"Euclid",
+    desc:"Cooperative humanoid that shifts involuntarily between dimensions.",
+    bBase:.0022,casualty:.05,cCost:2000,rCost:22000,risk:.02},
+};
+
+const SCP_QUEUE_DEFS = [
+  "SCP-049","SCP-999","SCP-106","SCP-682",
+  "SCP-914","SCP-079","SCP-076","SCP-035","SCP-507"
+];
+
+// Balance knobs: easier to tweak without hunting through the whole file.
+const BALANCE = {
+  personnelDaily: 0.84,
+  scpDaily: 0.76,
+  researchDaily: 0.48,
+  researchInit: 0.72,
+  researchSpeed: 2.15,
+  processSpeed: 1.55,
+};
+
+const DEPT_DEFS = {
+  security:{
+    label:"Security Department",col:"#bb4444",
+    roles:[
+      {role:"MTF Commander",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
+      {role:"Security Captain",lvl:"LVL-3",cost:1500,key:true,max:3,start:1},
+      {role:"Security Officer",lvl:"LVL-2",cost:1000,key:false,max:40,start:5},
+    ]
+  },
+  research:{
+    label:"Research Department",col:"#4455bb",
+    roles:[
+      {role:"Senior Researcher",lvl:"LVL-4",cost:2400,key:true,max:1,start:1},
+      {role:"Research Scientist",lvl:"LVL-3",cost:1800,key:true,max:4,start:1},
+      {role:"Junior Researcher",lvl:"LVL-2",cost:1200,key:false,max:25,start:3},
+      {role:"Research Assistant",lvl:"LVL-1",cost:600,key:false,max:30,start:2},
+    ]
+  },
+  containment:{
+    label:"Containment Division",col:"#448844",
+    roles:[
+      {role:"Chief Containment Specialist",lvl:"LVL-4",cost:2500,key:true,max:1,start:1},
+      {role:"Containment Engineer",lvl:"LVL-2",cost:1250,key:false,max:25,start:3},
+    ]
+  },
+  medical:{
+    label:"Medical Department",col:"#4466aa",
+    roles:[
+      {role:"Chief Medical Officer",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
+      {role:"Medical Officer",lvl:"LVL-2",cost:1000,key:false,max:20,start:2},
+    ]
+  },
+  admin:{
+    label:"Administration",col:"#887755",
+    roles:[
+      {role:"Deputy Site Director",lvl:"LVL-4",cost:3000,key:true,max:1,start:1},
+      {role:"Administrative Staff",lvl:"LVL-1",cost:600,key:false,max:15,start:2},
+    ]
+  },
+};
+
+// ══════════════════════════════════════════════════════
+// GAME STATE
+// ══════════════════════════════════════════════════════
+let G = {}, gameInt = null, curTab = 'finance', selSite = null;
+
+function initState(siteNum) {
+  const depts = {};
+  for (const [k, def] of Object.entries(DEPT_DEFS)) {
+    depts[k] = {
+      roles: def.roles.map(r => ({
+        ...r, count: r.start, totalKia: 0,
+      }))
+    };
+  }
+  const scps = {};
+  for (const id of ["SCP-173","SCP-096","SCP-131"]) {
+    const d = SCP_DB[id];
+    scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:1 };
+  }
+  G = {
+    siteNum, day:1, hour:0, budget:900000,
+    performance:75,
+    depts, scps,
+    scpQueue: [...SCP_QUEUE_DEFS],
+    nextScpDay: 45 + Math.floor(Math.random()*20),
+    nextGrantDay: 30,
+    grantBase: 2200000,
+    activeBreaches: [],
+    totalCasualties:0, totalBreaches:0, totalResearch:0, researchFundsEarned:0,
+    log:[], paused:false, over:false, speed:1,
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+const fmt$ = n => (n<0?'-$'+Math.abs(Math.round(n)).toLocaleString():'$'+Math.round(n).toLocaleString());
+const hr2 = h => String(h).padStart(2,'0')+':00';
+const tStr = () => `D${G.day} ${hr2(G.hour)}`;
+
+function addLog(msg, type='info') {
+  G.log.unshift({msg, type, t: tStr()});
+  if (G.log.length > 300) G.log.pop();
+  renderLog();
+}
+
+function notify(title, body, type='info', ms=5000) {
+  const wrap = document.getElementById('notifs');
+  const el = document.createElement('div');
+  el.className = `notif ${type}`;
+  el.innerHTML = `<div class="nt">${title}</div><div class="nb">${body}</div>`;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), ms);
+}
+
+function totalPers() {
+  return Object.values(G.depts).reduce((s,d) => s + d.roles.reduce((r,ro) => r+ro.count, 0), 0);
+}
+function dailyPersonnel() {
+  return Object.values(G.depts).reduce((s,d) => s + d.roles.reduce((r,ro) => r+ro.count*ro.cost, 0), 0) * BALANCE.personnelDaily;
+}
+function dailySCP() {
+  return Object.values(G.scps).reduce((s,sc) => s+sc.cCost, 0) * BALANCE.scpDaily;
+}
+function dailyResearch() {
+  return Object.values(G.scps).reduce((s,sc) => {
+    if (!sc.researching||sc.research>=100) return s;
+    return s + (sc.cls==='Keter'?2600:sc.cls==='Euclid'?1200:500);
+  }, 0);
+}
+function dailyCost() { return dailyPersonnel()+dailySCP()+dailyResearch(); }
+function researchers() { return G.depts.research.roles.reduce((s,r)=>s+r.count,0); }
+function researchFunding(cls) { return Math.round((cls==='Safe'?22000:cls==='Euclid'?56000:125000) * BALANCE.processSpeed); }
+function security() { return G.depts.security.roles.reduce((s,r)=>s+r.count,0); }
+function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Containment Engineer")||{count:0}).count; }
+
+// ══════════════════════════════════════════════════════
+// CASUALTY
+// ══════════════════════════════════════════════════════
+function causeCasualty(source) {
+  const prio = source==='research'
+    ? ['research','security','containment','medical']
+    : ['security','containment','research','medical'];
+  for (const dk of prio) {
+    const avail = G.depts[dk].roles.filter(r=>r.count>0);
+    if (!avail.length) continue;
+    const nonKey = avail.filter(r=>!r.key);
+    const tgt = (nonKey.length ? nonKey : avail)[Math.floor(Math.random()*(nonKey.length||avail.length))];
+    tgt.count--;
+    tgt.totalKia++;
+    G.totalCasualties++;
+    G.performance = Math.max(0, G.performance-2.5);
+    const src = source==='research'?'research accident':`${source} breach`;
+    addLog(`CASUALTY: ${tgt.role} (${DEPT_DEFS[dk].label}) KIA — ${src}`, 'dead');
+    notify('☠ PERSONNEL KIA', `${tgt.role} lost during ${src}`, 'dead', 6500);
+    return true;
+  }
+  return false;
+}
+
+// ══════════════════════════════════════════════════════
+// BREACH SYSTEM
+// ══════════════════════════════════════════════════════
+function breachChance(scp) {
+  // Class-first breach model:
+  // Safe is least likely, Keter sits in the middle,
+  // and Euclid is most likely to breach under routine containment pressure.
+  const classBase = {
+    Safe: 0.00100,
+    Keter: 0.0500,
+    Euclid: 0.01000,
+  }[scp.cls] || 0.001;
+
+  // Individual SCP traits still matter, but only as a small seasoning layer.
+  const anomalyVariance = 0.9 + Math.min(0.18, Math.max(0, scp.bBase || 0) * 5);
+  let c = classBase * anomalyVariance;
+
+  // Research, security, and containment engineering all lower breach odds.
+  c *= (1 - (scp.research / 100) * 0.68);
+  const sec = security();
+  c *= Math.max(0.32, 1 - Math.log(sec + 1) * 0.1);
+  const eng = engineers();
+  c *= Math.max(0.4, 1 - eng * 0.03);
+
+  // Breaches should stay possible, but they should not inherit the full process-speed boost.
+  return c * 0.72;
+}
+
+function breachCasualtyChance(scp) {
+  if (scp.cls === 'Safe') return 0;
+  const classBase = scp.cls === 'Euclid' ? 0.28 : 0.58;
+  const threat = Math.min(0.3, (scp.casualty || 0) * 0.35);
+  const researchMitigation = 1 - Math.min(0.35, (scp.research / 100) * 0.35);
+  return Math.min(0.95, Math.max(0, (classBase + threat) * researchMitigation));
+}
+
+function triggerBreach(id) {
+  const scp = G.scps[id];
+  if (scp.breach) return;
+  scp.breach = true;
+  scp.contained = false;
+  if (!G.activeBreaches.includes(id)) G.activeBreaches.push(id);
+  G.totalBreaches++;
+  G.performance = Math.max(0, G.performance-5);
+  addLog(`CONTAINMENT BREACH: ${id} (${scp.cls}) — RESPOND IMMEDIATELY`, 'breach');
+  notify(`⚠ BREACH: ${id}`, `${scp.name} has breached containment!`, 'breach', 9000);
+  updateBanner();
+  if (Math.random() < breachCasualtyChance(scp)) causeCasualty(id);
+}
+
+function recontain(id) {
+  const scp = G.scps[id];
+  if (!scp.breach) return;
+  if (G.budget < scp.rCost) {
+    notify('Insufficient Funds', `Recontainment requires ${fmt$(scp.rCost)}`, 'breach'); return;
+  }
+  G.budget -= scp.rCost;
+  scp.breach = false;
+  scp.contained = true;
+  G.activeBreaches = G.activeBreaches.filter(x=>x!==id);
+  G.performance = Math.min(100, G.performance+3);
+  addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
+  updateBanner();
+  renderAll();
+}
+
+function updateBanner() {
+  document.getElementById('alertBanner').style.display = G.activeBreaches.length ? 'block':'none';
+}
+
+// ══════════════════════════════════════════════════════
+// RESEARCH
+// ══════════════════════════════════════════════════════
+function resInitCost(cls) { return Math.round((cls==='Safe'?25000:cls==='Euclid'?75000:150000) * BALANCE.researchInit); }
+
+function beginResearch(id) {
+  const scp = G.scps[id];
+  if (scp.researching||scp.research>=100||scp.breach) return;
+  const c = resInitCost(scp.cls);
+  if (G.budget < c) { notify('Insufficient Funds', `Research on ${id} needs ${fmt$(c)}`, 'breach'); return; }
+  G.budget -= c;
+  scp.researching = true;
+  addLog(`Research initiated on ${id}. Initial cost: ${fmt$(c)}`, 'info');
+  renderAll();
+}
+
+function stopResearch(id) {
+  G.scps[id].researching = false;
+  addLog(`Research on ${id} suspended.`, 'warn');
+  renderAll();
+}
+
+function tickResearch() {
+  for (const [id, scp] of Object.entries(G.scps)) {
+    if (!scp.researching||scp.research>=100||scp.breach) continue;
+    const rc = researchers();
+    if (!rc) continue;
+    const base = scp.cls==='Safe'?3.5:scp.cls==='Euclid'?2.5:1.7;
+    const prog = base * Math.min(2.35, Math.log(rc+1)*0.7) * BALANCE.researchSpeed;
+    // Research accident
+    if (scp.risk>0 && Math.random()<scp.risk/30) {
+      causeCasualty('research');
+      if (scp.cls==='Keter') {
+        scp.researching = false;
+        addLog(`Research on ${id} HALTED — fatal incident. Protocol suspended.`, 'dead');
+        notify('⚠ Research Suspended', `Fatal incident during ${id} research.`, 'dead', 8000);
+        continue;
+      }
+    }
+    scp.research = Math.min(100, scp.research+prog);
+    if (scp.research>=100) {
+      scp.research = 100; scp.researching = false;
+      G.totalResearch++;
+      const fund = researchFunding(scp.cls);
+      G.researchFundsEarned = (G.researchFundsEarned || 0) + fund;
+      G.budget += fund;
+      G.performance = Math.min(100, G.performance+5);
+      addLog(`Research on ${id} COMPLETE. Breach risk reduced 60%. Funding secured: ${fmt$(fund)}.`, 'ok');
+      notify('✓ Research Complete', `${id} protocols optimized. Research funding: ${fmt$(fund)}`, 'ok', 7000);
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SCP ADDITION
+// ══════════════════════════════════════════════════════
+function addSCP() {
+  if (!G.scpQueue.length) return;
+  const id = G.scpQueue.shift();
+  const d = SCP_DB[id];
+  G.scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:G.day };
+  G.nextScpDay = G.day + Math.max(16, Math.round((40 + Math.floor(Math.random()*25)) / BALANCE.processSpeed));
+  addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
+  notify(`📦 ANOMALY TRANSFERRED`,
+    `${id} — "${d.name}" (${d.cls})\nContainment cost: ${fmt$(d.cCost)}/day`, 'newscp', 10000);
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════
+// O5 GRANT
+// ══════════════════════════════════════════════════════
+function processGrant() {
+  const mod = 0.5 + (G.performance/100);
+  const grant = Math.round(G.grantBase * mod);
+  G.budget += grant;
+  G.nextGrantDay = G.day + 30;
+  const tier = G.performance>=85?'EXEMPLARY':G.performance>=65?'SATISFACTORY':G.performance>=40?'MARGINAL':'POOR';
+  addLog(`O5 COUNCIL GRANT: ${fmt$(grant)} disbursed. Rating: ${tier}`, 'o5');
+  notify('💰 O5 Council Transfer', `Performance: ${tier}\nGrant: ${fmt$(grant)}`, 'o5', 8000);
+}
+
+// ══════════════════════════════════════════════════════
+// GAME TICK
+// ══════════════════════════════════════════════════════
+function tick() {
+  if (G.paused||G.over) return;
+  G.hour++;
+  if (G.hour>=24) {
+    G.hour=0; G.day++;
+    G.budget -= dailyCost();
+    tickResearch();
+    G.performance = Math.min(100, G.performance+0.5);
+    if (G.day>=G.nextGrantDay) processGrant();
+    if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
+    if (G.budget < -500000) {
+      endGame('Financial collapse. The O5 Council has terminated Site operations due to insolvency.'); return;
+    }
+    if (G.budget < 0) {
+      addLog('WARNING: Budget in deficit. Austerity measures required.', 'warn');
+      G.performance = Math.max(0, G.performance-5);
+    }
+    // All personnel wiped check
+    const allDead = Object.values(G.depts).every(d => d.roles.reduce((s,r)=>s+r.count,0)===0);
+    if (allDead) { endGame('All site personnel have been lost. Operations cannot continue.'); return; }
+    // Ongoing breach casualties (per day)
+    for (const id of G.activeBreaches) {
+      const scp = G.scps[id];
+      const fatalChance = breachCasualtyChance(scp) * 0.18;
+      if (Math.random() < fatalChance) causeCasualty(id);
+    }
+  }
+  // Hourly breach check
+  for (const [id,scp] of Object.entries(G.scps)) {
+    if (scp.breach) continue;
+    if (Math.random()<breachChance(scp)) triggerBreach(id);
+  }
+  renderAll();
+}
+
+function endGame(reason) {
+  G.over = true;
+  clearInterval(gameInt);
+  document.getElementById('gameOver').classList.add('show');
+  document.getElementById('goMsg').textContent = reason;
+  document.getElementById('goStats').innerHTML =
+    `Days survived: ${G.day}
+    Total personnel lost: ${G.totalCasualties}
+    Total breaches: ${G.totalBreaches}
+    Research completed: ${G.totalResearch}
+    Final budget: ${fmt$(G.budget)}`.split('\n').map(l=>`<div>${l.trim()}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// PERSONNEL ACTIONS
+// ══════════════════════════════════════════════════════
+function hirePersonnel(dk, ri) {
+  const role = G.depts[dk].roles[ri];
+  if (role.count>=role.max) return;
+  const cost = role.key ? role.cost*30 : role.cost*15;
+  if (G.budget<cost) { notify('Insufficient Funds', `Hiring ${role.role} costs ${fmt$(cost)}`, 'breach'); return; }
+  G.budget -= cost;
+  role.count++;
+  addLog(`Hired: ${role.role} (${DEPT_DEFS[dk].label}). Fee: ${fmt$(cost)}`, 'info');
+  renderAll();
+}
+
+function firePersonnel(dk, ri) {
+  const role = G.depts[dk].roles[ri];
+  if (role.count<=0) return;
+  role.count--;
+  addLog(`Released: ${role.role} (${DEPT_DEFS[dk].label})`, 'info');
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════
+// RENDERING
+// ══════════════════════════════════════════════════════
+function renderPersonnel() {
+  let html='', grandCost=0;
+  for (const [dk, def] of Object.entries(DEPT_DEFS)) {
+    const dept = G.depts[dk];
+    const dCost = dept.roles.reduce((s,r)=>s+r.count*r.cost,0);
+    grandCost += dCost;
+    html+=`<div class="dept">
+      <div class="dept-hd" style="color:${def.col}">${def.label}<span style="color:var(--dim)">${fmt$(dCost)}/day</span></div>`;
+    dept.roles.forEach((r,i)=>{
+      const hCost = r.key?r.cost*30:r.cost*15;
+      html+=`<div class="prow">
+        <div class="pinfo">
+          <div class="prole">${r.role}${r.key?'<span class="key-tag">KEY</span>':''}</div>
+          <div class="plvl">${r.lvl} · ${fmt$(r.cost)}/day · Hire: ${fmt$(hCost)}</div>
+          ${r.totalKia?`<div class="pkia">☠ ${r.totalKia} KIA total</div>`:''}
+        </div>
+        <span class="pcount">${r.count}</span>
+        <button class="pbtn fire" onclick="firePersonnel('${dk}',${i})" ${r.count<=0?'disabled':''}>−</button>
+        <button class="pbtn hire" onclick="hirePersonnel('${dk}',${i})" ${r.count>=r.max||G.budget<hCost?'disabled':''}>+</button>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  document.getElementById('persContent').innerHTML = html;
+  document.getElementById('salaryTot').textContent = fmt$(grandCost)+'/day';
+}
+
+function renderSCPs() {
+  const scps = Object.values(G.scps);
+  if (!scps.length) {
+    document.getElementById('scpContent').innerHTML = '<div class="no-scp">No anomalies assigned to this site.</div>';
+    return;
+  }
+  const order = {Keter:0,Euclid:1,Safe:2};
+  scps.sort((a,b)=>order[a.cls]-order[b.cls]);
+  let html='';
+  for (const scp of scps) {
+    const pct = breachChance(scp)*24*100;
+    const barCol = pct<4?'var(--green3)':pct<12?'var(--orange3)':'var(--red2)';
+    const barW = Math.min(100, pct*5);
+    const iCost = resInitCost(scp.cls);
+    html+=`<div class="scard${scp.breach?' breaching':''}">
+      <div class="sc-hd">
+        <span class="sc-id">${scp.id}</span>
+        <div class="sc-hd-r">
+          ${scp.breach?'<span class="breach-tag">⚠ BREACH</span>':'<span class="contained-tag">● CONTAINED</span>'}
+          <span class="cls-badge cls-${scp.cls}">${scp.cls}</span>
+        </div>
+      </div>
+      <div class="sc-name">"${scp.name}"</div>
+      <div class="sc-desc">${scp.desc}</div>
+      <div class="sc-grid">
+        <span class="sg-l">Breach Risk/Day</span><span class="sg-v">${pct.toFixed(1)}%</span>
+        <span class="sg-l">Contain Cost</span><span class="sg-v">${fmt$(scp.cCost)}/day</span>
+        <span class="sg-l">Recontain Cost</span><span class="sg-v">${fmt$(scp.rCost)}</span>
+        <span class="sg-l">Research</span><span class="sg-v">${Math.floor(scp.research)}%</span>
+      </div>
+      <div class="risk-track"><div class="risk-fill" style="width:${barW}%;background:${barCol}"></div></div>
+      <div class="res-track"><div class="res-fill" style="width:${scp.research}%"></div></div>
+      <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
+      <div class="sc-btns">
+        ${scp.breach?`<button class="sc-btn danger" onclick="recontain('${scp.id}')">⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
+        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
+        ${scp.researching&&!scp.breach?`<button class="sc-btn" onclick="stopResearch('${scp.id}')">⏸ Suspend Research</button>`:''}
+        ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">✓ Breach risk reduced 60%</span>`:''}
+      </div>
+    </div>`;
+  }
+  document.getElementById('scpContent').innerHTML = html;
+  const bc = G.activeBreaches.length;
+  document.getElementById('breachCount').textContent = bc?`⚠ ${bc} BREACH${bc>1?'ES':''}`:'' ;
+}
+
+function renderFinance() {
+  const pD=dailyPersonnel(), sD=dailySCP(), rD=dailyResearch(), tD=dailyCost();
+  const dToG = Math.max(0, G.nextGrantDay-G.day);
+  const proj = Math.round(G.grantBase*(0.5+G.performance/100));
+  const gPct = Math.min(100,((30-dToG)/30*100)).toFixed(0);
+  const budget = G.budget;
+  const bCol = budget<0?'var(--red2)':budget<200000?'var(--orange3)':'var(--green3)';
+  const projBal = budget - tD*dToG;
+  document.getElementById('tc-finance').innerHTML=`
+    <div class="fsec">
+      <div class="fhd">Current Balance</div>
+      <div class="frow"><span class="fl">Available Budget</span><span class="fv" style="color:${bCol}">${fmt$(budget)}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Daily Expenditures</div>
+      <div class="frow"><span class="fl">Personnel Salaries</span><span class="fv exp">${fmt$(pD)}</span></div>
+      <div class="frow"><span class="fl">SCP Containment</span><span class="fv exp">${fmt$(sD)}</span></div>
+      <div class="frow"><span class="fl">Research Operations</span><span class="fv exp">${fmt$(rD)}</span></div>
+      <div class="ftotal"><span>Total Daily</span><span class="fv exp">${fmt$(tD)}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">O5 Council Grant</div>
+      <div class="frow"><span class="fl">Next transfer in</span><span class="fv neu">${dToG} days</span></div>
+      <div class="gbar-track"><div class="gbar-fill" style="width:${gPct}%"></div></div>
+      <div class="frow"><span class="fl">Projected grant</span><span class="fv inc">${fmt$(proj)}</span></div>
+      <div class="frow"><span class="fl">Performance modifier</span><span class="fv neu">×${(0.5+G.performance/100).toFixed(2)}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Research Funding</div>
+      <div class="frow"><span class="fl">Total earned</span><span class="fv inc">${fmt$(G.researchFundsEarned || 0)}</span></div>
+      <div class="frow"><span class="fl">Per successful project</span><span class="fv neu">${fmt$(researchFunding('Euclid'))} avg</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Burn Rate Analysis</div>
+      <div class="frow"><span class="fl">Spend to next grant</span><span class="fv exp">${fmt$(tD*dToG)}</span></div>
+      <div class="frow"><span class="fl">Est. balance at grant</span>
+        <span class="fv" style="color:${projBal<0?'var(--red2)':'var(--green3)'}">${fmt$(projBal)}</span></div>
+    </div>`;
+}
+
+function renderResearch() {
+  const scps = Object.values(G.scps);
+  let html = scps.length?'':'<div class="no-scp">No anomalies to research.</div>';
+  for (const scp of scps) {
+    const iC = resInitCost(scp.cls);
+    const dC = scp.cls==='Keter'?4000:scp.cls==='Euclid'?2000:800;
+    const sta = scp.research>=100?'done':scp.researching?'active':'idle';
+    const staL = scp.research>=100?'COMPLETE':scp.researching?'ACTIVE':'IDLE';
+    html+=`<div class="ritem">
+      <div class="ri-hd"><span class="ri-id">${scp.id}</span><span class="ri-sta ${sta}">${staL}</span></div>
+      <div style="font-size:9px;color:var(--dim3);margin-bottom:3px">${scp.name} — ${scp.cls}</div>
+      <div class="ri-prog-track"><div class="ri-prog-fill" style="width:${scp.research}%"></div></div>
+      <div class="ri-meta">
+        Progress: <span>${Math.floor(scp.research)}%</span>
+        Init: <span>${fmt$(iC)}</span>
+        Daily: <span>${fmt$(dC)}</span>
+        Risk: <span>${Math.round(scp.risk*100)}%</span>
+      </div>
+      ${scp.research<100?`<div style="margin-top:5px">
+        ${!scp.researching
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach?'disabled':''}>Begin (${fmt$(iC)})</button>`
+          :`<button class="sc-btn" onclick="stopResearch('${scp.id}')">Suspend</button>`}
+      </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">✓ Breach risk reduced 60%</div>`}
+    </div>`;
+  }
+  document.getElementById('tc-research').innerHTML = html;
+}
+
+function renderReports() {
+  const allPers = totalPers();
+  document.getElementById('tc-reports').innerHTML=`
+    <div class="fsec">
+      <div class="fhd">Site Statistics</div>
+      <div class="frow"><span class="fl">Facility</span><span class="fv neu">Site-${String(G.siteNum).padStart(2,'0')}</span></div>
+      <div class="frow"><span class="fl">Day in Operation</span><span class="fv neu">${G.day}</span></div>
+      <div class="frow"><span class="fl">Performance Rating</span><span class="fv neu">${Math.round(G.performance)}%</span></div>
+      <div class="frow"><span class="fl">SCPs Contained</span><span class="fv neu">${Object.keys(G.scps).length}</span></div>
+      <div class="frow"><span class="fl">SCPs Pending Transfer</span><span class="fv neu">${G.scpQueue.length}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Incident Records</div>
+      <div class="frow"><span class="fl">Total Breaches</span><span class="fv exp">${G.totalBreaches}</span></div>
+      <div class="frow"><span class="fl">Personnel Casualties</span><span class="fv exp">${G.totalCasualties}</span></div>
+      <div class="frow"><span class="fl">Research Completed</span><span class="fv inc">${G.totalResearch}</span></div>
+      <div class="frow"><span class="fl">Research Funding Earned</span><span class="fv inc">${fmt$(G.researchFundsEarned || 0)}</span></div>
+      <div class="frow"><span class="fl">Active Breaches</span><span class="fv ${G.activeBreaches.length?'exp':'neu'}">${G.activeBreaches.length}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Current Personnel (${allPers} total)</div>
+      ${Object.entries(DEPT_DEFS).map(([dk,def])=>{
+        const cnt = G.depts[dk].roles.reduce((s,r)=>s+r.count,0);
+        return `<div class="frow"><span class="fl">${def.label}</span><span class="fv neu">${cnt}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="fsec">
+      <div class="fhd">Performance Factors</div>
+      <div style="font-size:10px;color:var(--txt);line-height:2">
+        Each breach: −6% · Each casualty: −3%<br>
+        Research complete: +5% · Recontainment: +2%<br>
+        Daily recovery: +0.4%/day · Budget deficit: −5%/day<br>
+        Research funding: extra income on completion
+      </div>
+    </div>`;
+}
+
+function renderLog() {
+  document.getElementById('log').innerHTML =
+    G.log.slice(0,100).map(e=>`<div class="lrow ${e.type}"><span class="lt">${e.t}</span><span class="lm">${e.msg}</span></div>`).join('');
+}
+
+function renderHeader() {
+  document.getElementById('hDay').textContent = G.day;
+  document.getElementById('hTime').textContent = hr2(G.hour);
+  document.getElementById('hScps').textContent = Object.keys(G.scps).length;
+  document.getElementById('hPers').textContent = totalPers();
+  const bEl = document.getElementById('hBudget');
+  bEl.textContent = fmt$(G.budget);
+  bEl.className = 'hst-val '+(G.budget<0?'red':G.budget<200000?'yellow':'green');
+  document.getElementById('hCost').textContent = fmt$(dailyCost());
+  const p = G.performance;
+  const pf = document.getElementById('perfFill');
+  pf.style.width = p+'%';
+  pf.style.background = p>=70?'var(--green3)':p>=40?'var(--orange3)':'var(--red2)';
+  document.getElementById('perfVal').textContent = Math.round(p)+'%';
+}
+
+function renderAll() {
+  renderHeader();
+  renderPersonnel();
+  renderSCPs();
+  if (curTab==='finance') renderFinance();
+  else if (curTab==='research') renderResearch();
+  else renderReports();
+}
+
+// ══════════════════════════════════════════════════════
+// TABS & SPEED
+// ══════════════════════════════════════════════════════
+function setTab(t) {
+  curTab = t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.tcont').forEach(el=>el.classList.remove('on'));
+  document.querySelector(`.tab[onclick="setTab('${t}')"]`).classList.add('on');
+  document.getElementById(`tc-${t}`).classList.add('on');
+  renderAll();
+}
+
+function setSpeed(s) {
+  G.speed = s;
+  G.paused = s===0;
+  document.querySelectorAll('.spd-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById(`spd${s}`).classList.add('on');
+  clearInterval(gameInt);
+  if (!G.paused && !G.over) {
+    gameInt = setInterval(tick, s===1?1100:380);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SITE SELECTION & START
+// ══════════════════════════════════════════════════════
+(function buildGrid() {
+  const g = document.getElementById('siteGrid');
+  for (let i=1;i<=65;i++) {
+    const b = document.createElement('button');
+    b.className = 'sb';
+    b.textContent = String(i).padStart(2,'0');
+    b.onclick = () => {
+      selSite = i;
+      document.querySelectorAll('.sb').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      document.getElementById('startBtn').disabled = false;
+    };
+    g.appendChild(b);
+  }
+})();
+
+function startGame() {
+  if (!selSite) return;
+  document.getElementById('startModal').style.display = 'none';
+  initState(selSite);
+  const sn = String(selSite).padStart(2,'0');
+  document.getElementById('hSite').textContent = `SITE-${sn}`;
+  addLog(`Site-${sn} initialized. Director access confirmed. Three anomalies in containment.`, 'ok');
+  addLog('SCP-173 (Euclid), SCP-096 (Euclid), SCP-131 (Safe) — containment nominal.', 'info');
+  addLog('First O5 Council budget disbursement in 30 days. Manage finances carefully.', 'o5');
+  addLog('Research your SCPs to reduce long-term breach risk. Monitor personnel counts.', 'warn');
+  renderAll();
+  setSpeed(1);
+}
+</script>
+</body>
+</html>
