@@ -334,7 +334,11 @@ body.mobile{
   overflow:auto;height:auto;min-height:100vh;
 }
 body.mobile::after{position:fixed}
-body.mobile #startModal{align-items:flex-start;justify-content:flex-start;padding:10px;overflow:auto}
+body.mobile #startModal{
+  align-items:flex-start;justify-content:flex-start;
+  padding:10px 10px calc(128px + env(safe-area-inset-bottom));
+  overflow:auto;
+}
 body.mobile #header{
   position:sticky;top:0;z-index:1200;
   flex-wrap:wrap;align-items:flex-start;
@@ -389,10 +393,14 @@ body.mobile .pcount{min-width:26px}
 body.mobile .pbtn{padding:8px 10px}
 body.mobile .site-grid{grid-template-columns:repeat(5,1fr);gap:5px}
 body.mobile .sb{padding:10px 0;font-size:11px}
-body.mobile .m-box{width:96%;padding:20px 14px}
+body.mobile .m-box{
+  width:96%;padding:20px 14px calc(112px + env(safe-area-inset-bottom));
+  max-height:calc(100dvh - 20px);overflow:auto;
+}
 body.mobile .m-title{font-size:20px;letter-spacing:3px}
 body.mobile .m-sub{font-size:9px;letter-spacing:1px}
 body.mobile .m-brief{font-size:10px;line-height:1.65}
+body.mobile #startBtn{margin-bottom:calc(10px + env(safe-area-inset-bottom))}
 body.mobile #log{
   position:fixed;left:8px;right:8px;bottom:68px;z-index:8200;
   height:34vh;max-height:34vh;border:1px solid #2a2a2a;border-radius:16px;
@@ -431,7 +439,7 @@ body.mobile .lt{min-width:54px}
 @media (max-width: 520px){
   body.mobile .site-grid{grid-template-columns:repeat(4,1fr)}
   body.mobile .h-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
-  body.mobile .m-box{padding:16px 12px}
+  body.mobile .m-box{padding:16px 12px calc(112px + env(safe-area-inset-bottom)); max-height:calc(100dvh - 20px); overflow:auto;}
   body.mobile .m-title{font-size:18px;letter-spacing:2px}
 }
 
