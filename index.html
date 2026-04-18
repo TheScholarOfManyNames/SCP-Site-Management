@@ -225,6 +225,7 @@ body::after{
 .sc-btn.danger{border-color:var(--red);color:var(--red)}
 .sc-btn.danger:hover{background:#0e0002}
 .sc-btn:disabled{opacity:.3;cursor:not-allowed}
+
 .recontain-wrap{
   flex-basis:100%;
   width:100%;
@@ -540,10 +541,10 @@ body.mobile .lt{min-width:54px}
   <div class="h-stats">
     <div class="hst"><div class="hst-lbl">Day</div><div class="hst-val" id="hDay">1</div></div>
     <div class="hst"><div class="hst-lbl">Time</div><div class="hst-val" id="hTime">00:00</div></div>
-    <div class="hst"><div class="hst-lbl">Budget</div><div class="hst-val green" id="hBudget">$750,000</div></div>
-    <div class="hst"><div class="hst-lbl">Daily Cost</div><div class="hst-val red" id="hCost">—</div></div>
-    <div class="hst"><div class="hst-lbl">Personnel</div><div class="hst-val" id="hPers">0</div></div>
-    <div class="hst"><div class="hst-lbl">SCPs</div><div class="hst-val" id="hScps">0</div></div>
+    <div class="hst"><div class="hst-lbl">Budget</div><div class="hst-val green" id="hBudget">$3,000,000</div></div>
+    <div class="hst"><div class="hst-lbl">Daily Cost</div><div class="hst-val red" id="hCost">$50,980</div></div>
+    <div class="hst"><div class="hst-lbl">Personnel</div><div class="hst-val" id="hPers">47</div></div>
+    <div class="hst"><div class="hst-lbl">SCPs</div><div class="hst-val" id="hScps">3</div></div>
     <div class="hst">
       <div class="hst-lbl">Performance</div>
       <div class="perf-wrap">
@@ -650,10 +651,10 @@ const SCP_QUEUE_DEFS = [
 const BALANCE = {
   personnelDaily: 0.84,
   scpDaily: 0.76,
-  researchDaily: 0.48,
-  researchInit: 0.72,
+  researchDaily: 0.5,
+  researchInit: 0.80,
   researchSpeed: 2.15,
-  processSpeed: 1.55,
+  processSpeed: 1.25,
 };
 
 const DEPT_DEFS = {
@@ -661,8 +662,9 @@ const DEPT_DEFS = {
     label:"Security Department",col:"#bb4444",
     roles:[
       {role:"MTF Commander",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
-      {role:"Security Captain",lvl:"LVL-3",cost:1500,key:true,max:3,start:2},
-      {role:"Security Officer",lvl:"LVL-2",cost:1000,key:false,max:40,start:12},
+      {role:"MTF Agent",lvl:"LVL-2",cost:1000,key:false,max:25,start:5},
+      {role:"Security Captain",lvl:"LVL-3",cost:1500,key:true,max:2,start:1},
+      {role:"Security Officer",lvl:"LVL-1",cost:500,key:false,max:40,start:8},
     ]
   },
   research:{
@@ -767,7 +769,7 @@ function dailyResearch() {
 }
 function dailyCost() { return dailyPersonnel()+dailySCP()+dailyResearch(); }
 function researchers() { return G.depts.research.roles.reduce((s,r)=>s+r.count,0); }
-function researchFunding(cls) { return Math.round((cls==='Safe'?22000:cls==='Euclid'?56000:125000) * BALANCE.processSpeed); }
+function researchFunding(cls) { return Math.round((cls==='Safe'?30000:cls==='Euclid'?60000:120000) * BALANCE.processSpeed); }
 function security() { return G.depts.security.roles.reduce((s,r)=>s+r.count,0); }
 function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Containment Engineer")||{count:0}).count; }
 
@@ -842,11 +844,32 @@ function triggerBreach(id) {
   addLog(`CONTAINMENT BREACH: ${id} (${scp.cls}) — RESPOND IMMEDIATELY`, 'breach');
   notify(`⚠ BREACH: ${id}`, `${scp.name} has breached containment!`, 'breach', 9000);
   updateBanner();
-  if (Math.random() < breachCasualtyChance(scp)) causeCasualty(id);
+
+  // Initial breach casualties can be more severe than the steady-state hourly danger.
+  const burst = scp.cls === 'Euclid' ? 2 : scp.cls === 'Keter' ? 3 : 0;
+  for (let i = 0; i < burst; i++) {
+    if (Math.random() < breachCasualtyChance(scp)) causeCasualty(id);
+  }
 }
 
 function recontainDurationHours(cls) {
   return cls === 'Safe' ? 0.5 : cls === 'Euclid' ? 3 : 5;
+}
+
+function completeRecontainment(id) {
+  const scp = G.scps[id];
+  if (!scp || !scp.recontainPending) return;
+  scp.recontainPending = false;
+  scp.recontainRemaining = 0;
+  scp.recontainDuration = 0;
+  scp.breach = false;
+  scp.contained = true;
+  G.activeBreaches = G.activeBreaches.filter(x=>x!==id);
+  G.performance = Math.min(100, G.performance+3);
+  addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
+  notify('✓ Recontainment Complete', `${id} has been secured.`, 'ok', 7000);
+  updateBanner();
+  renderAll();
 }
 
 function ensureRecontainTicker() {
@@ -859,35 +882,17 @@ function ensureRecontainTicker() {
     }
     if (G.paused) return;
 
-    const stepHours = (100 / 1100) * (G.speed || 1);
     let changed = false;
-    let completed = false;
-
     for (const scp of Object.values(G.scps)) {
       if (!scp.recontainPending) continue;
-      scp.recontainRemaining = Math.max(0, scp.recontainRemaining - stepHours);
+      scp.recontainRemaining = Math.max(0, scp.recontainRemaining - (0.1 * (G.speed || 1)));
       changed = true;
-      if (scp.recontainRemaining <= 0) {
-        scp.recontainPending = false;
-        scp.recontainRemaining = 0;
-        scp.recontainDuration = 0;
-        scp.breach = false;
-        scp.contained = true;
-        G.activeBreaches = G.activeBreaches.filter(x=>x!==scp.id);
-        G.performance = Math.min(100, G.performance+3);
-        addLog(`${scp.id} recontained after delay.`, 'ok');
-        notify('✓ Recontainment Complete', `${scp.id} has been secured.`, 'ok', 6000);
-        completed = true;
-      }
+      if (scp.recontainRemaining <= 0) completeRecontainment(scp.id);
     }
 
-    if (changed) {
-      updateBanner();
-      if (completed) renderAll();
-      else renderSCPs();
-    }
+    if (changed) renderSCPs();
 
-    if (!Object.values(G.scps).some(scp => scp.recontainPending)) {
+    if (!Object.values(G.scps).some(s => s.recontainPending)) {
       clearInterval(recontainInt);
       recontainInt = null;
     }
@@ -904,8 +909,8 @@ function recontain(id) {
   scp.recontainPending = true;
   scp.recontainDuration = recontainDurationHours(scp.cls);
   scp.recontainRemaining = scp.recontainDuration;
-  addLog(`Recontainment initiated for ${id}. ETA: ${fmtDurationHours(scp.recontainDuration)}. Cost: ${fmt$(scp.rCost)}`, 'warn');
-  notify('⚠ Recontainment Initiated', `${id} will be secured in ${fmtDurationHours(scp.recontainDuration)}.`, 'warn', 6000);
+  addLog(`Recontainment initiated for ${id}. Cost: ${fmt$(scp.rCost)}.`, 'warn');
+  notify('⚠ Recontainment initiated', `Deploying MTF units to recontain ${id}.`, 'warn', 7000);
   ensureRecontainTicker();
   renderAll();
 }
@@ -1008,7 +1013,7 @@ function tick() {
     G.performance = Math.min(100, G.performance+1);
     if (G.day>=G.nextGrantDay) processGrant();
     if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
-    if (G.budget < -500000) {
+    if (G.budget < -1000000) {
       endGame('Financial collapse. The O5 Council has terminated Site operations due to insolvency.'); return;
     }
     if (G.budget < 0) {
@@ -1018,17 +1023,17 @@ function tick() {
     // All personnel wiped check
     const allDead = Object.values(G.depts).every(d => d.roles.reduce((s,r)=>s+r.count,0)===0);
     if (allDead) { endGame('All site personnel have been lost. Operations cannot continue.'); return; }
-    // Ongoing breach casualties (per day)
-    for (const id of G.activeBreaches) {
-      const scp = G.scps[id];
-      const fatalChance = breachCasualtyChance(scp) * 0.18;
-      if (Math.random() < fatalChance) causeCasualty(id);
-    }
+    // Ongoing breach casualties are resolved hourly so they continue during recontainment delay.
   }
   // Hourly breach check
   for (const [id,scp] of Object.entries(G.scps)) {
     if (scp.breach) continue;
     if (Math.random()<breachChance(scp)) triggerBreach(id);
+  }
+  for (const id of G.activeBreaches) {
+    const scp = G.scps[id];
+    const hourlyFatal = breachCasualtyChance(scp) * 0.35;
+    if (Math.random() < hourlyFatal) causeCasualty(id);
   }
   renderAll();
 }
@@ -1136,7 +1141,7 @@ function renderSCPs() {
         ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')">⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
         ${scp.recontainPending?`
           <div class="recontain-wrap">
-            <div class="recontain-lbl">Recontainment in progress · ${fmtDurationHours(scp.recontainRemaining)} remaining</div>
+            <div class="recontain-lbl">Recontainment in progress</div>
             <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
             <div class="recontain-sub">Containment team en route. Active breach status remains until complete.</div>
           </div>`:''}
@@ -1196,7 +1201,7 @@ function renderResearch() {
   let html = scps.length?'':'<div class="no-scp">No anomalies to research.</div>';
   for (const scp of scps) {
     const iC = resInitCost(scp.cls);
-    const dC = scp.cls==='Keter'?4000:scp.cls==='Euclid'?2000:800;
+    const dC = scp.cls==='Keter'?10000:scp.cls==='Euclid'?5000:2000;
     const sta = scp.research>=100?'done':scp.researching?'active':'idle';
     const staL = scp.research>=100?'COMPLETE':scp.researching?'ACTIVE':'IDLE';
     html+=`<div class="ritem">
@@ -1248,9 +1253,9 @@ function renderReports() {
     <div class="fsec">
       <div class="fhd">Performance Factors</div>
       <div style="font-size:10px;color:var(--txt);line-height:2">
-        Each breach: −6% · Each casualty: −3%<br>
-        Research complete: +5% · Recontainment: +2%<br>
-        Daily recovery: +1.25%/day · Budget deficit: −5%/day<br>
+        Each breach: −5% · Each casualty: −1%<br>
+        Research complete: +5% · Recontainment: +3%<br>
+        Daily recovery: +1%/day · Budget deficit: −5%/day<br>
         Research funding: extra income on completion
       </div>
     </div>`;
