@@ -606,7 +606,7 @@ body.mobile .lt{min-width:54px}
 const SCP_DB = {
   "SCP-173":{name:"The Sculpture",cls:"Euclid",
     desc:"Animate concrete entity. Immobile while directly observed.",
-    bBase:.0038,casualty:.35,cCost:4500,rCost:45000,risk:.08},
+    bBase:.0038,casualty:.35,cCost:4500,rCost:45000,risk:.1},
   "SCP-096":{name:"The Shy Guy",cls:"Euclid",
     desc:"Docile until its face is viewed. Extreme aggression during SCP-096-1 events.",
     bBase:.003,casualty:.45,cCost:3500,rCost:42000,risk:.12},
@@ -654,7 +654,7 @@ const BALANCE = {
   researchDaily: 0.5,
   researchInit: 0.80,
   researchSpeed: 2.15,
-  processSpeed: 1.25,
+  processSpeed: 1,
 };
 
 const DEPT_DEFS = {
@@ -686,8 +686,8 @@ const DEPT_DEFS = {
   admin:{
     label:"Administration",col:"#887755",
     roles:[
-      {role:"Deputy Site Director",lvl:"LVL-4",cost:3000,key:true,max:1,start:1},
-      {role:"Administrative Staff",lvl:"LVL-1",cost:600,key:false,max:15,start:5},
+      {role:"Site Manager",lvl:"LVL-4",cost:3000,key:true,max:3,start:1},
+      {role:"Assistant Manager",lvl:"LVL-3",cost:2250,key:false,max:10,start:4},
     ]
   },
 };
@@ -712,7 +712,7 @@ function initState(siteNum) {
     scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   }
   G = {
-    siteNum, day:1, hour:0, budget:3000000,
+    siteNum, day:1, hour:0, budget:2000000,
     performance:75,
     depts, scps,
     scpQueue: [...SCP_QUEUE_DEFS],
