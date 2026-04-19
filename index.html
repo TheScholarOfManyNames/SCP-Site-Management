@@ -647,6 +647,8 @@ const BALANCE = {
   researchSpeed: 1.4,
   processSpeed: 1.4,
 };
+const CHAOS_RAID_COST = 200000;
+const CHAOS_RAID_DURATION_HOURS = 5;
 
 const DEPT_DEFS = {
   security:{
@@ -713,6 +715,8 @@ function initState(siteNum) {
     activeBreaches: [],
     totalCasualties:0, totalBreaches:0, totalResearch:0, researchFundsEarned:0,
     log:[], paused:false, over:false, speed:1,
+    containmentCollapseActive:false,
+    chaosRaid:null,
   };
 }
 
@@ -768,29 +772,153 @@ function researchers() { return G.depts.research.roles.reduce((s,r)=>s+r.count,0
 function researchFunding(cls) { return Math.round((cls==='Safe'?20000:cls==='Euclid'?40000:100000) * BALANCE.processSpeed); }
 function security() { return G.depts.security.roles.reduce((s,r)=>s+r.count,0); }
 function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Containment Engineer")||{count:0}).count; }
+function containmentStaff() { return G.depts.containment.roles.reduce((s,r)=>s+r.count,0); }
+function hasResearchers() { return researchers() > 0; }
+function hasSecurity() { return security() > 0; }
+function hasContainment() { return containmentStaff() > 0; }
+function insufficientPersonnel(kind, need) {
+  notify('Insufficient Personnel', need, 'breach', 7000);
+  addLog(`INSUFFICIENT PERSONNEL: ${kind}`, 'warn');
+}
+function triggerMassContainmentBreach() {
+  if (G.containmentCollapseActive) return;
+  G.containmentCollapseActive = true;
+  addLog('MASS CONTAINMENT BREACH: Containment Division offline — all SCPs are breaching.', 'breach');
+  notify('⚠ MASS CONTAINMENT BREACH', 'Containment Division has been depleted. All SCPs are now breaching.', 'breach', 10000);
+  let triggered = 0;
+  for (const [id, scp] of Object.entries(G.scps)) {
+    if (!scp.breach) { triggerBreach(id); triggered++; }
+  }
+  if (triggered > 0) renderAll();
+}
+function destroyResearchResults(reason) {
+  const hadResearch = Object.values(G.scps).some(s => s.research > 0 || s.researching);
+  if (!hadResearch && !G.totalResearch) return;
+  for (const scp of Object.values(G.scps)) {
+    scp.research = 0;
+    scp.researching = false;
+  }
+  G.totalResearch = 0;
+  addLog(`RESEARCH DATA LOST: ${reason} — all SCP research has been reset to 0%.`, 'dead');
+  notify('⚠ RESEARCH DATA LOST', `${reason}. All prior research must be redone.`, 'dead', 10000);
+}
+function suspendResearchIfNoScientists() {
+  if (hasResearchers()) return;
+  let suspended = false;
+  for (const scp of Object.values(G.scps)) {
+    if (scp.researching) suspended = true;
+    scp.researching = false;
+  }
+  if (suspended) {
+    addLog('Research suspended — Scientific Department is empty.', 'warn');
+    notify('Insufficient Personnel', 'No Scientific Department staff remain. Research is suspended until restaffed.', 'breach', 8000);
+    renderAll();
+  }
+}
+function triggerChaosRaid() {
+  if (G.over || G.chaosRaid?.active) return;
+  G.chaosRaid = { active: true, responseActive: false, responseRemaining: 0, elapsed: 0 };
+  addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
+  notify('⚠ CHAOS INSURGENCY RAID', 'Chaos hostiles are on-site. Breach events will continue until the raid is stopped.', 'breach', 10000);
+  destroyResearchResults('Chaos Insurgency raid');
+  const raidCasualties = Math.max(3, Math.ceil(totalPers() * 0.08));
+  for (let i = 0; i < raidCasualties; i++) {
+    if (!causeCasualty('chaos')) break;
+  }
+  renderAll();
+}
+function stopChaosRaid() {
+  if (!G.chaosRaid?.active || G.chaosRaid.responseActive) return;
+  if (G.budget < CHAOS_RAID_COST) {
+    notify('Insufficient Funds', `Emergency response requires ${fmt$(CHAOS_RAID_COST)}.`, 'breach');
+    return;
+  }
+  G.budget -= CHAOS_RAID_COST;
+  G.chaosRaid.responseActive = true;
+  G.chaosRaid.responseRemaining = CHAOS_RAID_DURATION_HOURS;
+  addLog(`CHAOS CONTAINMENT RESPONSE INITIATED — hostiles will be hunted for up to ${CHAOS_RAID_DURATION_HOURS} hours. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn');
+  notify('⚠ RAID RESPONSE DEPLOYED', `Elimination teams deployed. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn', 9000);
+  renderAll();
+}
+function advanceChaosRaidHalfHour() {
+  const raid = G.chaosRaid;
+  if (!raid?.active) return;
+  raid.elapsed += 0.5;
+  const candidates = Object.values(G.scps).filter(s => !s.breach);
+  if (candidates.length) {
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    triggerBreach(chosen.id);
+    destroyResearchResults(`Chaos Insurgency breached ${chosen.id}`);
+  }
+  const hostileHits = Math.max(1, Math.ceil(totalPers() * 0.03));
+  for (let i = 0; i < hostileHits; i++) {
+    if (!causeCasualty('chaos')) break;
+  }
+  if (raid.responseActive) {
+    raid.responseRemaining = Math.max(0, raid.responseRemaining - 0.5);
+    if (raid.responseRemaining <= 0) {
+      raid.active = false;
+      addLog('CHAOS INSURGENCY RAID ELIMINATED — hostiles neutralized and site perimeter secured.', 'ok');
+      notify('✓ RAID ELIMINATED', 'Chaos hostiles have been neutralized.', 'ok', 9000);
+      G.chaosRaid = null;
+    }
+  }
+}
 
 // ══════════════════════════════════════════════════════
 // CASUALTY
 // ══════════════════════════════════════════════════════
 function causeCasualty(source) {
-  const prio = source==='research'
-    ? ['research','security','containment']
-    : ['security','containment','research'];
-  for (const dk of prio) {
-    const avail = G.depts[dk].roles.filter(r=>r.count>0);
-    if (!avail.length) continue;
-    const nonKey = avail.filter(r=>!r.key);
-    const tgt = (nonKey.length ? nonKey : avail)[Math.floor(Math.random()*(nonKey.length||avail.length))];
-    tgt.count--;
-    tgt.totalKia++;
-    G.totalCasualties++;
-    G.performance = Math.max(0, G.performance-1);
-    const src = source==='research'?'research accident':`${source} breach`;
-    addLog(`CASUALTY: ${tgt.role} (${DEPT_DEFS[dk].label}) KIA — ${src}`, 'dead');
-    notify('☠ PERSONNEL KIA', `${tgt.role} lost during ${src}`, 'dead', 6500);
-    return true;
+  const src = source==='research' ? 'research accident'
+    : source==='chaos' ? 'Chaos Insurgency raid'
+    : `${source} breach`;
+
+  let choice;
+
+  if (source === 'research') {
+    // Research accidents only reach Scientific and Security departments.
+    const pool = [];
+    for (const dk of ['research', 'security']) {
+      const dept = G.depts[dk];
+      for (let ri = 0; ri < dept.roles.length; ri++) {
+        for (let n = 0; n < dept.roles[ri].count; n++) pool.push({ dk, ri });
+      }
+    }
+    if (!pool.length) return false;
+    choice = pool[Math.floor(Math.random() * pool.length)];
+  } else {
+    // Breach / CI raid: Stage 1 — all non-admin staff drawn randomly.
+    // Stage 2 — Administration only after everyone else is gone.
+    const nonAdminPool = [];
+    const adminPool = [];
+    for (const [dk, dept] of Object.entries(G.depts)) {
+      for (let ri = 0; ri < dept.roles.length; ri++) {
+        for (let n = 0; n < dept.roles[ri].count; n++) {
+          (dk === 'admin' ? adminPool : nonAdminPool).push({ dk, ri });
+        }
+      }
+    }
+    const attackPool = nonAdminPool.length ? nonAdminPool : adminPool;
+    if (!attackPool.length) return false;
+    choice = attackPool[Math.floor(Math.random() * attackPool.length)];
   }
-  return false;
+
+  const tgt = G.depts[choice.dk].roles[choice.ri];
+  tgt.count--;
+  tgt.totalKia++;
+  G.totalCasualties++;
+  G.performance = Math.max(0, G.performance - 1);
+  addLog(`CASUALTY: ${tgt.role} (${DEPT_DEFS[choice.dk].label}) KIA — ${src}`, 'dead');
+  notify('☠ PERSONNEL KIA', `${tgt.role} lost during ${src}`, 'dead', 6500);
+
+  // Research accident that wipes Security triggers containment collapse —
+  // punishes leaving Security unstaffed while conducting hazardous research.
+  if (source === 'research' && !hasSecurity()) {
+    addLog('WARNING: Security Department depleted during research incident — containment integrity compromised.', 'warn');
+    triggerMassContainmentBreach();
+  }
+
+  return true;
 }
 
 // ══════════════════════════════════════════════════════
@@ -849,7 +977,7 @@ function triggerBreach(id) {
 }
 
 function recontainDurationHours(cls) {
-  return cls === 'Safe' ? 0.5 : cls === 'Euclid' ? 3 : 5;
+  return cls === 'Safe' ? 0.5 : cls === 'Euclid' ? 2 : 3;
 }
 
 function completeRecontainment(id) {
@@ -878,6 +1006,24 @@ function ensureRecontainTicker() {
     }
     if (G.paused) return;
 
+    if (!hasSecurity()) {
+      const pending = Object.values(G.scps).filter(s => s.recontainPending).length;
+      if (pending) {
+        for (const scp of Object.values(G.scps)) {
+          if (!scp.recontainPending) continue;
+          scp.recontainPending = false;
+          scp.recontainRemaining = 0;
+          scp.recontainDuration = 0;
+        }
+        addLog('Recontainment suspended — Security Department is empty.', 'warn');
+        notify('Insufficient Personnel', 'No recontainment can continue without Security Department staff.', 'breach', 8000);
+        renderAll();
+      }
+      clearInterval(recontainInt);
+      recontainInt = null;
+      return;
+    }
+
     let changed = false;
     for (const scp of Object.values(G.scps)) {
       if (!scp.recontainPending) continue;
@@ -898,6 +1044,7 @@ function ensureRecontainTicker() {
 function recontain(id) {
   const scp = G.scps[id];
   if (!scp.breach || scp.recontainPending) return;
+  if (!hasSecurity()) { insufficientPersonnel('Security Department', 'No recontainment is possible until the Security Department has at least one member.'); return; }
   if (G.budget < scp.rCost) {
     notify('Insufficient Funds', `Recontainment requires ${fmt$(scp.rCost)}`, 'breach'); return;
   }
@@ -922,7 +1069,8 @@ function resInitCost(cls) { return Math.round((cls==='Safe'?25000:cls==='Euclid'
 
 function beginResearch(id) {
   const scp = G.scps[id];
-  if (scp.researching||scp.research>=100||scp.breach) return;
+  if (scp.researching||scp.research>=100||scp.breach||G.chaosRaid?.active) return;
+  if (!hasResearchers()) { insufficientPersonnel('Scientific Department', 'No research can begin until the Scientific Department has at least one researcher.'); return; }
   const c = resInitCost(scp.cls);
   if (G.budget < c) { notify('Insufficient Funds', `Research on ${id} needs ${fmt$(c)}`, 'breach'); return; }
   G.budget -= c;
@@ -938,18 +1086,26 @@ function stopResearch(id) {
 }
 
 function tickResearch() {
+  if (G.chaosRaid?.active) return;
   for (const [id, scp] of Object.entries(G.scps)) {
     if (!scp.researching||scp.research>=100||scp.breach) continue;
     const rc = researchers();
-    if (!rc) continue;
+    if (!rc) {
+      scp.researching = false;
+      addLog(`Research on ${id} suspended — no Scientific Department personnel available.`, 'warn');
+      notify('Insufficient Personnel', 'Scientific Department is empty. Research has been suspended.', 'breach', 7000);
+      continue;
+    }
     const base = scp.cls==='Safe'?3.5:scp.cls==='Euclid'?2.5:1.7;
     const prog = base * Math.min(2.35, Math.log(rc+1)*0.7) * BALANCE.researchSpeed;
-    // Research accident
-    if (scp.risk>0 && Math.random()<scp.risk/30) {
-      causeCasualty('research');
+    // Research accident — harsher chance formula, multiple casualties for higher-class SCPs
+    const accidentChance = Math.min(0.42, Math.max(0.03, (scp.risk || 0) * 0.85 + (scp.cls==='Keter'?0.08:scp.cls==='Euclid'?0.05:0.02)));
+    if (scp.risk>0 && Math.random()<accidentChance) {
+      const casualties = scp.cls==='Keter' ? 2 : scp.cls==='Euclid' ? 1 + (Math.random()<0.35 ? 1 : 0) : 1;
+      for (let i = 0; i < casualties; i++) causeCasualty('research');
       if (scp.cls==='Keter') {
         scp.researching = false;
-        addLog(`Research on ${id} HALTED — fatal incident. Protocol suspended.`, 'dead');
+        addLog(`Research on ${id} HALTED — severe fatality event. Protocol suspended.`, 'dead');
         notify('⚠ Research Suspended', `Fatal incident during ${id} research.`, 'dead', 8000);
         continue;
       }
@@ -973,8 +1129,15 @@ function tickResearch() {
 // ══════════════════════════════════════════════════════
 function addSCP() {
   if (!G.scpQueue.length) return;
-  const id = G.scpQueue.shift();
+  const id = G.scpQueue[0];
   const d = SCP_DB[id];
+  if (!hasContainment()) {
+    addLog(`ANOMALY TRANSFER POSTPONED: ${id} — Containment Division offline. Transfer suspended until site is operational.`, 'warn');
+    notify('⚠ TRANSFER POSTPONED', `${id} transfer suspended. Restore Containment Division to proceed.`, 'warn', 10000);
+    G.nextScpDay = G.day + 1;
+    return;
+  }
+  G.scpQueue.shift();
   G.scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   G.nextScpDay = G.day + 40;
   addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
@@ -1005,8 +1168,10 @@ function tick() {
   if (G.hour>=24) {
     G.hour=0; G.day++;
     G.budget -= dailyCost();
-    tickResearch();
+    if (!G.chaosRaid?.active) tickResearch();
+    suspendResearchIfNoScientists();
     G.performance = Math.min(100, G.performance+1);
+    if (Math.random() < 0.015) triggerChaosRaid();
     if (G.day>=G.nextGrantDay) processGrant();
     if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
     if (G.budget < -1000000) {
@@ -1016,21 +1181,31 @@ function tick() {
       addLog('WARNING: Budget in deficit. Austerity measures required.', 'warn');
       G.performance = Math.max(0, G.performance-4);
     }
+    if (!hasContainment()) {
+      triggerMassContainmentBreach();
+    } else {
+      G.containmentCollapseActive = false;
+    }
     // All personnel wiped check
     const allDead = Object.values(G.depts).every(d => d.roles.reduce((s,r)=>s+r.count,0)===0);
     if (allDead) { endGame('All site personnel have been lost. Operations cannot continue.'); return; }
-    // Ongoing breach casualties are resolved hourly so they continue during recontainment delay.
   }
-  // Hourly breach check
-  for (const [id,scp] of Object.entries(G.scps)) {
-    if (scp.breach) continue;
-    if (Math.random()<breachChance(scp)) triggerBreach(id);
+  if (G.chaosRaid?.active) {
+    advanceChaosRaidHalfHour();
+    advanceChaosRaidHalfHour();
+  } else {
+    // Hourly breach check
+    for (const [id,scp] of Object.entries(G.scps)) {
+      if (scp.breach) continue;
+      if (Math.random()<breachChance(scp)) triggerBreach(id);
+    }
   }
-  for (const id of G.activeBreaches) {
+  for (const id of [...G.activeBreaches]) {
     const scp = G.scps[id];
     const hourlyFatal = breachCasualtyChance(scp) * 0.35;
     if (Math.random() < hourlyFatal) causeCasualty(id);
   }
+  suspendResearchIfNoScientists();
   renderAll();
 }
 
@@ -1134,14 +1309,14 @@ function renderSCPs() {
       <div class="res-track"><div class="res-fill" style="width:${scp.research}%"></div></div>
       <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
       <div class="sc-btns">
-        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')">⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
+        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasSecurity()?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
         ${scp.recontainPending?`
           <div class="recontain-wrap">
             <div class="recontain-lbl">Recontainment in progress</div>
             <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
             <div class="recontain-sub">Containment team en route. Active breach status remains until complete.</div>
           </div>`:''}
-        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
+        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost||!hasResearchers()||G.chaosRaid?.active?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
         ${scp.researching&&!scp.breach?`<button class="sc-btn" onclick="stopResearch('${scp.id}')">⏸ Suspend Research</button>`:''}
         ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">✓ Breach risk reduced 60%</span>`:''}
       </div>
@@ -1213,7 +1388,7 @@ function renderResearch() {
       </div>
       ${scp.research<100?`<div style="margin-top:5px">
         ${!scp.researching
-          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach?'disabled':''}>Begin (${fmt$(iC)})</button>`
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach||!hasResearchers()||G.chaosRaid?.active?'disabled':''}>Begin (${fmt$(iC)})</button>`
           :`<button class="sc-btn" onclick="stopResearch('${scp.id}')">Suspend</button>`}
       </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">✓ Breach risk reduced 60%</div>`}
     </div>`;
@@ -1223,6 +1398,7 @@ function renderResearch() {
 
 function renderReports() {
   const allPers = totalPers();
+  const raid = G.chaosRaid;
   document.getElementById('tc-reports').innerHTML=`
     <div class="fsec">
       <div class="fhd">Site Statistics</div>
@@ -1240,6 +1416,19 @@ function renderReports() {
       <div class="frow"><span class="fl">Research Funding Earned</span><span class="fv inc">${fmt$(G.researchFundsEarned || 0)}</span></div>
       <div class="frow"><span class="fl">Active Breaches</span><span class="fv ${G.activeBreaches.length?'exp':'neu'}">${G.activeBreaches.length}</span></div>
     </div>
+    ${raid ? `
+    <div class="fsec">
+      <div class="fhd">Chaos Insurgency Raid</div>
+      <div class="frow"><span class="fl">Status</span><span class="fv exp">${raid.responseActive ? 'Response in progress' : 'Hostiles on-site'}</span></div>
+      <div class="frow"><span class="fl">Elapsed</span><span class="fv neu">${raid.elapsed.toFixed(1)}h</span></div>
+      <div class="frow"><span class="fl">Response Time</span><span class="fv neu">${raid.responseActive ? `${raid.responseRemaining.toFixed(1)}h remaining` : 'Not initiated'}</span></div>
+      <div class="frow"><span class="fl">Elimination Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_COST)}</span></div>
+      <div style="margin-top:6px">
+        ${!raid.responseActive
+          ? `<button class="sc-btn danger" onclick="stopChaosRaid()">Stop the raid and eliminate hostiles (${fmt$(CHAOS_RAID_COST)})</button>`
+          : `<div style="font-size:10px;color:var(--txt2);line-height:1.6">Containment teams are engaged. The raid can still breach SCPs while the response timer runs.</div>`}
+      </div>
+    </div>` : ''}
     <div class="fsec">
       <div class="fhd">Current Personnel (${allPers} total)</div>
       ${Object.entries(DEPT_DEFS).map(([dk,def])=>{
@@ -1253,8 +1442,7 @@ function renderReports() {
         Each breach: −5% · Each casualty: −1%<br>
         Research complete: +5% · Recontainment: +3%<br>
         Daily recovery: +1%/day · Budget deficit: −4%/day<br>
-        Research funding: extra income on completion<br>
-        Power systems: daily operating cost
+        Research funding: extra income on completion · Power systems add a daily operating cost
       </div>
     </div>`;
 }
