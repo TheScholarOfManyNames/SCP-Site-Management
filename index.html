@@ -1171,7 +1171,6 @@ function triggerChaosRaid() {
     responseActive: wasPrepaid,
     responseRemaining: wasPrepaid ? CHAOS_RAID_DURATION_EARLY : 0,
     elapsed: 0,
-    justStarted: true,
     overlayAcknowledged: false
   };
   setSpeed(1)
@@ -1272,11 +1271,6 @@ function advanceChaosRaidHalfHour() {
 
   // ── Active raid damage tick ──────────────────────────────────────────────
   if (!raid.active) return;
-  if (raid.justStarted) {
-    raid.justStarted = false;
-    updateRaidTopBar();
-    return;
-  }
   raid.elapsed += 0.5;
   const candidates = Object.values(G.scps).filter(s => !s.breach && !s.roaming);
   if (candidates.length) {
