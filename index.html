@@ -740,11 +740,13 @@ function addLog(msg, type='info') {
 
 function notify(title, body, type='info', ms=5000) {
   const wrap = document.getElementById('notifs');
+  // Hard cap at 4: evict the oldest notification when the queue is full.
+  while (wrap.children.length >= 4) wrap.removeChild(wrap.firstChild);
   const el = document.createElement('div');
   el.className = `notif ${type}`;
   el.innerHTML = `<div class="nt">${title}</div><div class="nb">${body}</div>`;
   wrap.appendChild(el);
-  setTimeout(() => el.remove(), ms);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, ms);
 }
 
 function totalPers() {
@@ -825,9 +827,11 @@ function triggerChaosRaid() {
   for (let i = 0; i < raidCasualties; i++) {
     if (!causeCasualty('chaos')) break;
   }
-  renderAll();
+  setTab('reports');
+  setSpeed(1);
 }
 function stopChaosRaid() {
+  if (G.paused) return;
   if (!G.chaosRaid?.active || G.chaosRaid.responseActive) return;
   if (G.budget < CHAOS_RAID_COST) {
     notify('Insufficient Funds', `Emergency response requires ${fmt$(CHAOS_RAID_COST)}.`, 'breach');
@@ -876,12 +880,14 @@ function causeCasualty(source) {
   let choice;
 
   if (source === 'research') {
-    // Research accidents only reach Scientific and Security departments.
+    // Research accidents only reach non-key Scientific and Security personnel.
     const pool = [];
     for (const dk of ['research', 'security']) {
       const dept = G.depts[dk];
       for (let ri = 0; ri < dept.roles.length; ri++) {
-        for (let n = 0; n < dept.roles[ri].count; n++) pool.push({ dk, ri });
+        const role = dept.roles[ri];
+        if (role.key) continue; // key personnel are never killed in research accidents
+        for (let n = 0; n < role.count; n++) pool.push({ dk, ri });
       }
     }
     if (!pool.length) return false;
@@ -1042,6 +1048,7 @@ function ensureRecontainTicker() {
 }
 
 function recontain(id) {
+  if (G.paused) return;
   const scp = G.scps[id];
   if (!scp.breach || scp.recontainPending) return;
   if (!hasSecurity()) { insufficientPersonnel('Security Department', 'No recontainment is possible until the Security Department has at least one member.'); return; }
@@ -1068,6 +1075,7 @@ function updateBanner() {
 function resInitCost(cls) { return Math.round((cls==='Safe'?25000:cls==='Euclid'?75000:150000) * BALANCE.researchInit); }
 
 function beginResearch(id) {
+  if (G.paused) return;
   const scp = G.scps[id];
   if (scp.researching||scp.research>=100||scp.breach||G.chaosRaid?.active) return;
   if (!hasResearchers()) { insufficientPersonnel('Scientific Department', 'No research can begin until the Scientific Department has at least one researcher.'); return; }
@@ -1080,6 +1088,7 @@ function beginResearch(id) {
 }
 
 function stopResearch(id) {
+  if (G.paused) return;
   G.scps[id].researching = false;
   addLog(`Research on ${id} suspended.`, 'warn');
   renderAll();
@@ -1227,6 +1236,7 @@ function endGame(reason) {
 // PERSONNEL ACTIONS
 // ══════════════════════════════════════════════════════
 function hirePersonnel(dk, ri) {
+  if (G.paused) return;
   const role = G.depts[dk].roles[ri];
   if (role.count>=role.max) return;
   const cost = role.key ? role.cost*30 : role.cost*15;
@@ -1238,6 +1248,7 @@ function hirePersonnel(dk, ri) {
 }
 
 function firePersonnel(dk, ri) {
+  if (G.paused) return;
   const role = G.depts[dk].roles[ri];
   if (role.count<=0) return;
   role.count--;
@@ -1265,8 +1276,8 @@ function renderPersonnel() {
           ${r.totalKia?`<div class="pkia">☠ ${r.totalKia} KIA total</div>`:''}
         </div>
         <span class="pcount">${r.count}</span>
-        <button class="pbtn fire" onclick="firePersonnel('${dk}',${i})" ${r.count<=0?'disabled':''}>−</button>
-        <button class="pbtn hire" onclick="hirePersonnel('${dk}',${i})" ${r.count>=r.max||G.budget<hCost?'disabled':''}>+</button>
+        <button class="pbtn fire" onclick="firePersonnel('${dk}',${i})" ${r.count<=0||G.paused?'disabled':''}>−</button>
+        <button class="pbtn hire" onclick="hirePersonnel('${dk}',${i})" ${r.count>=r.max||G.budget<hCost||G.paused?'disabled':''}>+</button>
       </div>`;
     });
     html+=`</div>`;
@@ -1309,15 +1320,15 @@ function renderSCPs() {
       <div class="res-track"><div class="res-fill" style="width:${scp.research}%"></div></div>
       <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
       <div class="sc-btns">
-        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasSecurity()?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
+        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasSecurity()&&!G.paused?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
         ${scp.recontainPending?`
           <div class="recontain-wrap">
             <div class="recontain-lbl">Recontainment in progress</div>
             <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
             <div class="recontain-sub">Containment team en route. Active breach status remains until complete.</div>
           </div>`:''}
-        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost||!hasResearchers()||G.chaosRaid?.active?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
-        ${scp.researching&&!scp.breach?`<button class="sc-btn" onclick="stopResearch('${scp.id}')">⏸ Suspend Research</button>`:''}
+        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
+        ${scp.researching&&!scp.breach?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
         ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">✓ Breach risk reduced 60%</span>`:''}
       </div>
     </div>`;
@@ -1388,8 +1399,8 @@ function renderResearch() {
       </div>
       ${scp.research<100?`<div style="margin-top:5px">
         ${!scp.researching
-          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach||!hasResearchers()||G.chaosRaid?.active?'disabled':''}>Begin (${fmt$(iC)})</button>`
-          :`<button class="sc-btn" onclick="stopResearch('${scp.id}')">Suspend</button>`}
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>Begin (${fmt$(iC)})</button>`
+          :`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>Suspend</button>`}
       </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">✓ Breach risk reduced 60%</div>`}
     </div>`;
   }
@@ -1425,7 +1436,7 @@ function renderReports() {
       <div class="frow"><span class="fl">Elimination Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_COST)}</span></div>
       <div style="margin-top:6px">
         ${!raid.responseActive
-          ? `<button class="sc-btn danger" onclick="stopChaosRaid()">Stop the raid and eliminate hostiles (${fmt$(CHAOS_RAID_COST)})</button>`
+          ? `<button class="sc-btn danger" onclick="stopChaosRaid()" ${G.paused?'disabled':''}>Stop the raid and eliminate hostiles (${fmt$(CHAOS_RAID_COST)})</button>`
           : `<div style="font-size:10px;color:var(--txt2);line-height:1.6">Containment teams are engaged. The raid can still breach SCPs while the response timer runs.</div>`}
       </div>
     </div>` : ''}
