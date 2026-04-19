@@ -201,6 +201,14 @@ body::after{
   0%,100%{box-shadow:0 0 6px rgba(180,0,0,.25)}
   50%{box-shadow:0 0 18px rgba(200,0,0,.55)}
 }
+.scard.roaming{
+  border-color:var(--blue2);
+  animation:rpulse 2.2s infinite;
+}
+@keyframes rpulse{
+  0%,100%{box-shadow:0 0 5px rgba(0,80,160,.18)}
+  50%{box-shadow:0 0 14px rgba(0,120,220,.42)}
+}
 .sc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .sc-id{color:var(--txt4);font-size:14px;font-weight:700;font-family:var(--mono)}
 .sc-hd-r{display:flex;align-items:center;gap:6px}
@@ -266,6 +274,7 @@ body::after{
 }
 .breach-tag{color:var(--red2);font-size:10px;font-weight:700;animation:blink .8s infinite;font-family:var(--mono)}
 .contained-tag{color:var(--green3);font-size:10px;font-family:var(--mono)}
+.roaming-tag{color:var(--blue3);font-size:10px;font-weight:700;font-family:var(--mono)}
 
 /* ── RIGHT PANEL ── */
 .tabs{display:flex;gap:1px;margin-bottom:8px}
@@ -337,8 +346,83 @@ body::after{
 .lrow.dead .lm{color:var(--red3);font-weight:600}
 .lrow.newscp .lm{color:var(--orange2);font-weight:600}
 
-/* ── NOTIFICATIONS ── */
-#notifs{
+/* ── CI RAID OVERLAY ── */
+#raidOverlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.82);
+  z-index:6000;
+  align-items:center;justify-content:center;
+}
+#raidOverlay.show{display:flex}
+.ro-box{
+  max-width:460px;width:92%;
+  border:1px solid var(--red2);
+  background:#0b0005;
+  padding:26px 28px;
+  box-shadow:0 0 48px rgba(200,0,0,.35), 0 0 8px rgba(200,0,0,.2);
+  animation:roAppear .22s ease;
+}
+@keyframes roAppear{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.ro-title{
+  color:var(--red2);font-size:17px;font-weight:700;
+  letter-spacing:4px;font-family:var(--mono);margin-bottom:3px;
+  animation:blink 1s infinite;
+}
+.ro-sub{
+  color:var(--dim3);font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;font-family:var(--mono);margin-bottom:14px;
+}
+.ro-body{
+  font-size:12px;color:var(--txt2);line-height:1.75;
+  border-left:2px solid var(--red);padding-left:12px;margin-bottom:14px;
+}
+.ro-stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;
+  font-size:11px;border:1px solid #1a0008;
+  background:#080003;padding:10px 12px;margin-bottom:16px;
+}
+.ro-sl{color:var(--dim3);font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;align-self:center}
+.ro-sv{color:var(--txt2);font-family:var(--mono);font-weight:700;font-size:12px}
+.ro-sv.red{color:var(--red2)}
+.ro-sv.orange{color:var(--orange3)}
+.ro-sv.green{color:var(--green3)}
+.ro-actions{display:flex;gap:8px;flex-direction:column}
+#roStopBtn{
+  background:var(--red);border:none;color:#fff;
+  font-family:var(--mono);font-size:11px;padding:11px;
+  cursor:pointer;letter-spacing:2px;text-transform:uppercase;
+  transition:background .2s;
+}
+#roStopBtn:hover{background:var(--red2)}
+#roStopBtn:disabled{background:#1a1a22;color:var(--dim);cursor:not-allowed}
+.ro-dismiss{
+  background:none;border:1px solid var(--b3);color:var(--dim3);
+  font-family:inherit;font-size:11px;padding:8px;cursor:pointer;
+  transition:all .15s;letter-spacing:.5px;
+}
+.ro-dismiss:hover{border-color:var(--txt);color:var(--txt2)}
+.ro-response-bar{
+  height:5px;background:var(--b1);border-radius:3px;overflow:hidden;margin:6px 0 2px;
+}
+.ro-response-fill{
+  height:100%;background:linear-gradient(90deg,var(--orange),var(--red2));
+  border-radius:3px;transition:width .5s linear;
+}
+
+/* ── RAID BADGE (reopen handle) ── */
+#raidBadge{
+  display:none;position:fixed;top:50%;right:0;
+  transform:translateY(-50%);
+  background:var(--red);color:#fff;
+  font-family:var(--mono);font-size:9px;letter-spacing:2px;
+  padding:10px 6px;cursor:pointer;z-index:5900;
+  writing-mode:vertical-rl;text-orientation:mixed;
+  border-left:2px solid var(--red2);
+  animation:blink .9s infinite;
+}
+#raidBadge.show{display:block}
+
+
   position:fixed;bottom:134px;right:10px;
   z-index:800;display:flex;flex-direction:column;gap:5px;max-width:280px;
 }
@@ -449,7 +533,11 @@ body.mobile #log{
 }
 body.mobile #log.mobile-open{display:block}
 body.mobile #notifs{
-  right:8px;left:8px;bottom:76px;max-width:none;pointer-events:none;
+  right:8px;left:8px;
+  top:8px;bottom:auto;
+  max-width:none;pointer-events:none;
+  flex-direction:column-reverse;
+  z-index:9100;
 }
 body.mobile .notif{pointer-events:auto}
 body.mobile #mobileNav{
@@ -508,6 +596,27 @@ body.mobile .lt{min-width:54px}
   <button id="startBtn" disabled onclick="startGame()">▶ ASSUME COMMAND</button>
 </div>
 </div>
+
+<!-- CI RAID OVERLAY -->
+<div id="raidOverlay">
+  <div class="ro-box">
+    <div class="ro-title" id="roTitle">⚠ CHAOS INSURGENCY RAID</div>
+    <div class="ro-sub" id="roSub">Site Perimeter Compromised — All Personnel to Stations</div>
+    <div class="ro-body" id="roBody">
+      Chaos Insurgency operatives have breached the site perimeter. SCP breaches will continue
+      and personnel casualties will mount until the raid is neutralized. Issue an emergency response
+      to deploy elimination teams.
+    </div>
+    <div class="ro-stats" id="roStats"></div>
+    <div class="ro-actions">
+      <button id="roStopBtn" onclick="stopChaosRaid()"></button>
+      <button class="ro-dismiss" onclick="dismissRaidOverlay()">✕ Acknowledge &amp; Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- RAID ACTIVE BADGE -->
+<div id="raidBadge" onclick="showRaidOverlay()">⚠ RAID ACTIVE</div>
 
 <!-- GAME OVER -->
 <div id="gameOver">
@@ -647,8 +756,11 @@ const BALANCE = {
   researchSpeed: 1.4,
   processSpeed: 1.4,
 };
-const CHAOS_RAID_COST = 200000;
-const CHAOS_RAID_DURATION_HOURS = 5;
+const CHAOS_RAID_COST          = 200000; // cost if player responds AFTER raid lands
+const CHAOS_RAID_EARLY_COST    = 150000; // cost if player pre-deploys during warning
+const CHAOS_RAID_DURATION_HOURS = 5;    // response timer when reacting after landing
+const CHAOS_RAID_DURATION_EARLY = 4;    // response timer when pre-deployed
+const CHAOS_RAID_WARNING_HOURS  = 1.5;  // advance-warning window before raid lands
 
 const DEPT_DEFS = {
   security:{
@@ -702,7 +814,7 @@ function initState(siteNum) {
   const scps = {};
   for (const id of ["SCP-173","SCP-096","SCP-131"]) {
     const d = SCP_DB[id];
-    scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+    scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   }
   G = {
     siteNum, day:1, hour:0, budget:2500000,
@@ -789,7 +901,7 @@ function triggerMassContainmentBreach() {
   notify('⚠ MASS CONTAINMENT BREACH', 'Containment Division has been depleted. All SCPs are now breaching.', 'breach', 10000);
   let triggered = 0;
   for (const [id, scp] of Object.entries(G.scps)) {
-    if (!scp.breach) { triggerBreach(id); triggered++; }
+    if (!scp.breach && !scp.roaming) { triggerBreach(id); triggered++; }
   }
   if (triggered > 0) renderAll();
 }
@@ -817,38 +929,203 @@ function suspendResearchIfNoScientists() {
     renderAll();
   }
 }
+function showRaidOverlay() {
+  document.getElementById('raidOverlay').classList.add('show');
+  document.getElementById('raidBadge').classList.remove('show');
+  renderRaidOverlay();
+}
+function dismissRaidOverlay() {
+  document.getElementById('raidOverlay').classList.remove('show');
+  const raid = G.chaosRaid;
+  if (raid?.active || raid?.warning) {
+    const badge = document.getElementById('raidBadge');
+    badge.textContent = raid.warning ? '⚠ RAID WARNING' : '⚠ RAID ACTIVE';
+    badge.style.background = raid.warning ? 'var(--orange)' : 'var(--red)';
+    badge.classList.add('show');
+  }
+}
+function hideRaidOverlayAndBadge() {
+  document.getElementById('raidOverlay').classList.remove('show');
+  document.getElementById('raidBadge').classList.remove('show');
+}
+function renderRaidOverlay() {
+  const raid = G.chaosRaid;
+  if (!raid) { hideRaidOverlayAndBadge(); return; }
+
+  const statsEl  = document.getElementById('roStats');
+  const stopBtn  = document.getElementById('roStopBtn');
+  const titleEl  = document.getElementById('roTitle');
+  const subEl    = document.getElementById('roSub');
+  const bodyEl   = document.getElementById('roBody');
+
+  // ── WARNING PHASE ──────────────────────────────────────────
+  if (raid.warning) {
+    document.getElementById('raidOverlay').classList.add('show');
+    document.getElementById('raidBadge').classList.remove('show');
+    titleEl.textContent = '⚠ CHAOS INSURGENCY DETECTED';
+    subEl.textContent   = 'Hostile Forces Mobilizing — Secure the Facility Now';
+    bodyEl.textContent  = 'Intelligence has confirmed Chaos Insurgency operatives advancing on this facility. '
+      + 'You have a limited window to pre-deploy response units. '
+      + 'Doing so now is cheaper and will shorten the engagement window once hostiles breach. '
+      + 'The raid cannot be prevented — damage will still occur when they arrive.';
+
+    const budgetOk = G.budget >= CHAOS_RAID_EARLY_COST;
+    statsEl.innerHTML = `
+      <span class="ro-sl">Status</span><span class="ro-sv orange">WARNING — ${raid.warningRemaining.toFixed(1)}h Until Breach</span>
+      <span class="ro-sl">Early Deploy Cost</span><span class="ro-sv ${budgetOk?'orange':'red'}">${fmt$(CHAOS_RAID_EARLY_COST)}</span>
+      <span class="ro-sl">Standard Cost (after breach)</span><span class="ro-sv">${fmt$(CHAOS_RAID_COST)}</span>
+      <span class="ro-sl">Early Response Window</span><span class="ro-sv orange">${CHAOS_RAID_DURATION_EARLY}h (vs ${CHAOS_RAID_DURATION_HOURS}h standard)</span>`;
+
+    if (raid.prepaid) {
+      stopBtn.disabled = true;
+      stopBtn.textContent = '✓ Response Teams Pre-Deployed — Awaiting Breach';
+      stopBtn.style.background = 'var(--green)';
+    } else {
+      stopBtn.disabled = G.paused || !budgetOk;
+      stopBtn.style.background = '';
+      stopBtn.textContent = budgetOk
+        ? `⚡ Pre-Deploy Response Teams (${fmt$(CHAOS_RAID_EARLY_COST)})`
+        : `Insufficient Funds — Need ${fmt$(CHAOS_RAID_EARLY_COST)}`;
+    }
+    return;
+  }
+
+  // ── ACTIVE RAID PHASE ──────────────────────────────────────
+  if (!raid.active) { hideRaidOverlayAndBadge(); return; }
+  titleEl.textContent = '⚠ CHAOS INSURGENCY RAID';
+  subEl.textContent   = 'Site Perimeter Compromised — All Personnel to Stations';
+  bodyEl.textContent  = 'Chaos Insurgency operatives have breached the site perimeter. SCP breaches will continue '
+    + 'and personnel casualties will mount until the raid is neutralized.';
+  stopBtn.style.background = '';
+
+  const elapsed  = raid.elapsed.toFixed(1);
+  const budgetOk = G.budget >= CHAOS_RAID_COST;
+
+  if (raid.responseActive) {
+    const dur = raid.prepaid ? CHAOS_RAID_DURATION_EARLY : CHAOS_RAID_DURATION_HOURS;
+    const pct = Math.max(0, Math.min(100, ((dur - raid.responseRemaining) / dur) * 100));
+    statsEl.innerHTML = `
+      <span class="ro-sl">Status</span><span class="ro-sv orange">Response Active${raid.prepaid?' (Pre-Deployed)':''}</span>
+      <span class="ro-sl">Elapsed</span><span class="ro-sv">${elapsed}h</span>
+      <span class="ro-sl">Hostiles Remaining</span><span class="ro-sv red">${raid.responseRemaining.toFixed(1)}h est.</span>
+      <span class="ro-sl">Active Breaches</span><span class="ro-sv red">${G.activeBreaches.length}</span>
+      <div style="grid-column:1/-1;margin-top:4px">
+        <div style="font-size:9px;color:var(--dim3);margin-bottom:3px;letter-spacing:.5px;text-transform:uppercase">Elimination Progress</div>
+        <div class="ro-response-bar"><div class="ro-response-fill" style="width:${pct}%"></div></div>
+        <div style="font-size:9px;color:var(--txt2);margin-top:2px">Elimination teams engaged — stand by.</div>
+      </div>`;
+    stopBtn.disabled = true;
+    stopBtn.textContent = 'Response Deployed — Awaiting Neutralization';
+  } else {
+    statsEl.innerHTML = `
+      <span class="ro-sl">Status</span><span class="ro-sv red">Hostiles On-Site</span>
+      <span class="ro-sl">Elapsed</span><span class="ro-sv">${elapsed}h</span>
+      <span class="ro-sl">Response Cost</span><span class="ro-sv ${budgetOk?'':'red'}">${fmt$(CHAOS_RAID_COST)}</span>
+      <span class="ro-sl">Active Breaches</span><span class="ro-sv red">${G.activeBreaches.length}</span>`;
+    stopBtn.disabled = G.paused || !budgetOk;
+    stopBtn.textContent = budgetOk
+      ? `⚡ Deploy Emergency Response (${fmt$(CHAOS_RAID_COST)})`
+      : `Insufficient Funds — Need ${fmt$(CHAOS_RAID_COST)}`;
+  }
+}
+
+// ── Phase 1: start the 1.5h warning window ─────────────────────────────────
+function triggerChaosRaidWarning() {
+  if (G.over || G.chaosRaid) return;
+  G.chaosRaid = {
+    active: false, warning: true,
+    warningRemaining: CHAOS_RAID_WARNING_HOURS,
+    prepaid: false,
+    responseActive: false, responseRemaining: 0, elapsed: 0
+  };
+  addLog('CHAOS INSURGENCY ALERT: Hostile units detected approaching the facility. Deploy response units immediately.', 'warn');
+  notify('⚠ CI FORCES DETECTED',
+    `Chaos Insurgency operatives inbound. You have ${CHAOS_RAID_WARNING_HOURS}h to pre-deploy response teams at reduced cost.`,
+    'warn', 12000);
+  showRaidOverlay();
+}
+
+// ── Phase 2: raid arrives (called when warning timer expires) ────────────────
 function triggerChaosRaid() {
-  if (G.over || G.chaosRaid?.active) return;
-  G.chaosRaid = { active: true, responseActive: false, responseRemaining: 0, elapsed: 0 };
+  if (G.over) return;
+  const wasPrepaid = G.chaosRaid?.prepaid || false;
+  G.chaosRaid = {
+    active: true, warning: false, warningRemaining: 0,
+    prepaid: wasPrepaid,
+    responseActive: wasPrepaid,
+    responseRemaining: wasPrepaid ? CHAOS_RAID_DURATION_EARLY : 0,
+    elapsed: 0
+  };
   addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
-  notify('⚠ CHAOS INSURGENCY RAID', 'Chaos hostiles are on-site. Breach events will continue until the raid is stopped.', 'breach', 10000);
   destroyResearchResults('Chaos Insurgency raid');
   const raidCasualties = Math.max(3, Math.ceil(totalPers() * 0.08));
   for (let i = 0; i < raidCasualties; i++) {
     if (!causeCasualty('chaos')) break;
   }
-  setTab('reports');
   setSpeed(1);
+  if (wasPrepaid) {
+    addLog(`CHAOS RESPONSE AUTO-ACTIVATED — pre-deployed teams now engaging. Elimination window: ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok');
+    notify('⚡ RAID — RESPONSE ACTIVE', 'Pre-deployed teams engaging hostiles automatically.', 'warn', 9000);
+  } else {
+    showRaidOverlay();
+  }
 }
+
 function stopChaosRaid() {
   if (G.paused) return;
-  if (!G.chaosRaid?.active || G.chaosRaid.responseActive) return;
+  const raid = G.chaosRaid;
+  if (!raid) return;
+
+  // ── Pre-deploy during warning window ───────────────────────────────────────
+  if (raid.warning && !raid.prepaid) {
+    if (G.budget < CHAOS_RAID_EARLY_COST) {
+      notify('Insufficient Funds', `Pre-deployment requires ${fmt$(CHAOS_RAID_EARLY_COST)}.`, 'breach');
+      renderRaidOverlay();
+      return;
+    }
+    G.budget -= CHAOS_RAID_EARLY_COST;
+    raid.prepaid = true;
+    addLog(`CI RESPONSE PRE-DEPLOYED — ${fmt$(CHAOS_RAID_EARLY_COST)} committed. Teams will auto-engage upon breach. Response window: ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok');
+    notify('✓ Response Teams Pre-Deployed',
+      `Teams ready to engage on arrival. Elimination window reduced to ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok', 8000);
+    renderAll();
+    return;
+  }
+
+  // ── Standard stop during active raid ───────────────────────────────────────
+  if (!raid.active || raid.responseActive) return;
   if (G.budget < CHAOS_RAID_COST) {
     notify('Insufficient Funds', `Emergency response requires ${fmt$(CHAOS_RAID_COST)}.`, 'breach');
+    renderRaidOverlay();
     return;
   }
   G.budget -= CHAOS_RAID_COST;
-  G.chaosRaid.responseActive = true;
-  G.chaosRaid.responseRemaining = CHAOS_RAID_DURATION_HOURS;
+  raid.responseActive = true;
+  raid.responseRemaining = CHAOS_RAID_DURATION_HOURS;
   addLog(`CHAOS CONTAINMENT RESPONSE INITIATED — hostiles will be hunted for up to ${CHAOS_RAID_DURATION_HOURS} hours. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn');
-  notify('⚠ RAID RESPONSE DEPLOYED', `Elimination teams deployed. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn', 9000);
   renderAll();
 }
 function advanceChaosRaidHalfHour() {
   const raid = G.chaosRaid;
-  if (!raid?.active) return;
+  if (!raid) return;
+
+  // ── Warning countdown ────────────────────────────────────────────────────
+  if (raid.warning) {
+    raid.warningRemaining = Math.max(0, raid.warningRemaining - 0.5);
+    if (raid.warningRemaining <= 0) {
+      // Warning window has expired — raid lands now
+      addLog('CHAOS INSURGENCY: Warning period elapsed. Hostiles are breaching the perimeter.', 'breach');
+      hideRaidOverlayAndBadge();
+      triggerChaosRaid();
+      if (!G.chaosRaid?.prepaid) showRaidOverlay();
+    }
+    return;
+  }
+
+  // ── Active raid damage tick ──────────────────────────────────────────────
+  if (!raid.active) return;
   raid.elapsed += 0.5;
-  const candidates = Object.values(G.scps).filter(s => !s.breach);
+  const candidates = Object.values(G.scps).filter(s => !s.breach && !s.roaming);
   if (candidates.length) {
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
     triggerBreach(chosen.id);
@@ -865,9 +1142,11 @@ function advanceChaosRaidHalfHour() {
       addLog('CHAOS INSURGENCY RAID ELIMINATED — hostiles neutralized and site perimeter secured.', 'ok');
       notify('✓ RAID ELIMINATED', 'Chaos hostiles have been neutralized.', 'ok', 9000);
       G.chaosRaid = null;
+      hideRaidOverlayAndBadge();
     }
   }
 }
+
 
 // ══════════════════════════════════════════════════════
 // CASUALTY
@@ -965,7 +1244,18 @@ function breachCasualtyChance(scp) {
 
 function triggerBreach(id) {
   const scp = G.scps[id];
-  if (scp.breach) return;
+  if (scp.breach || scp.roaming) return;
+
+  // Safe-class SCPs roam the facility instead of breaching
+  if (scp.cls === 'Safe') {
+    scp.roaming = true;
+    scp.contained = false;
+    addLog(`ROAMING: ${id} (Safe) — ${scp.name} has left containment and is roaming the facility.`, 'info');
+    notify(`🔵 ROAMING: ${id}`, `${scp.name} is wandering the facility. Recontainment is available at no cost.`, 'info', 9000);
+    updateBanner();
+    return;
+  }
+
   scp.breach = true;
   scp.contained = false;
   if (!G.activeBreaches.includes(id)) G.activeBreaches.push(id);
@@ -989,14 +1279,20 @@ function recontainDurationHours(cls) {
 function completeRecontainment(id) {
   const scp = G.scps[id];
   if (!scp || !scp.recontainPending) return;
+  const wasRoaming = scp.roaming;
   scp.recontainPending = false;
   scp.recontainRemaining = 0;
   scp.recontainDuration = 0;
   scp.breach = false;
+  scp.roaming = false;
   scp.contained = true;
   G.activeBreaches = G.activeBreaches.filter(x=>x!==id);
-  G.performance = Math.min(100, G.performance+3);
-  addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
+  if (wasRoaming) {
+    addLog(`${id} guided back to containment chamber.`, 'ok');
+  } else {
+    G.performance = Math.min(100, G.performance+3);
+    addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
+  }
   notify('✓ Recontainment Complete', `${id} has been secured.`, 'ok', 7000);
   updateBanner();
   renderAll();
@@ -1050,8 +1346,22 @@ function ensureRecontainTicker() {
 function recontain(id) {
   if (G.paused) return;
   const scp = G.scps[id];
-  if (!scp.breach || scp.recontainPending) return;
+  if (scp.recontainPending) return;
   if (!hasSecurity()) { insufficientPersonnel('Security Department', 'No recontainment is possible until the Security Department has at least one member.'); return; }
+
+  // Roaming Safe SCPs: free recontainment, no budget charge
+  if (scp.roaming) {
+    scp.recontainPending = true;
+    scp.recontainDuration = recontainDurationHours(scp.cls);
+    scp.recontainRemaining = scp.recontainDuration;
+    addLog(`Recontainment initiated for roaming ${id} — no cost.`, 'info');
+    notify('🔵 Recontainment initiated', `Personnel guiding ${id} back to its chamber.`, 'info', 6000);
+    ensureRecontainTicker();
+    renderAll();
+    return;
+  }
+
+  if (!scp.breach) return;
   if (G.budget < scp.rCost) {
     notify('Insufficient Funds', `Recontainment requires ${fmt$(scp.rCost)}`, 'breach'); return;
   }
@@ -1077,7 +1387,7 @@ function resInitCost(cls) { return Math.round((cls==='Safe'?25000:cls==='Euclid'
 function beginResearch(id) {
   if (G.paused) return;
   const scp = G.scps[id];
-  if (scp.researching||scp.research>=100||scp.breach||G.chaosRaid?.active) return;
+  if (scp.researching||scp.research>=100||scp.breach||scp.roaming||G.chaosRaid?.active) return;
   if (!hasResearchers()) { insufficientPersonnel('Scientific Department', 'No research can begin until the Scientific Department has at least one researcher.'); return; }
   const c = resInitCost(scp.cls);
   if (G.budget < c) { notify('Insufficient Funds', `Research on ${id} needs ${fmt$(c)}`, 'breach'); return; }
@@ -1097,7 +1407,7 @@ function stopResearch(id) {
 function tickResearch() {
   if (G.chaosRaid?.active) return;
   for (const [id, scp] of Object.entries(G.scps)) {
-    if (!scp.researching||scp.research>=100||scp.breach) continue;
+    if (!scp.researching||scp.research>=100||scp.breach||scp.roaming) continue;
     const rc = researchers();
     if (!rc) {
       scp.researching = false;
@@ -1147,7 +1457,7 @@ function addSCP() {
     return;
   }
   G.scpQueue.shift();
-  G.scps[id] = { ...d, id, breach:false, research:0, researching:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+  G.scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   G.nextScpDay = G.day + 40;
   addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
   notify(`📦 ANOMALY TRANSFERRED`,
@@ -1180,7 +1490,7 @@ function tick() {
     if (!G.chaosRaid?.active) tickResearch();
     suspendResearchIfNoScientists();
     G.performance = Math.min(100, G.performance+1);
-    if (Math.random() < 0.04) triggerChaosRaid();
+    if (!G.chaosRaid && Math.random() < 0.04) triggerChaosRaidWarning();
     if (G.day>=G.nextGrantDay) processGrant();
     if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
     if (G.budget < -1000000) {
@@ -1199,13 +1509,13 @@ function tick() {
     const allDead = Object.values(G.depts).every(d => d.roles.reduce((s,r)=>s+r.count,0)===0);
     if (allDead) { endGame('All site personnel have been lost. Operations cannot continue.'); return; }
   }
-  if (G.chaosRaid?.active) {
+  if (G.chaosRaid?.active || G.chaosRaid?.warning) {
     advanceChaosRaidHalfHour();
     advanceChaosRaidHalfHour();
   } else {
     // Hourly breach check
     for (const [id,scp] of Object.entries(G.scps)) {
-      if (scp.breach) continue;
+      if (scp.breach || scp.roaming) continue;
       if (Math.random()<breachChance(scp)) triggerBreach(id);
     }
   }
@@ -1300,11 +1610,17 @@ function renderSCPs() {
     const barCol = pct<4?'var(--green3)':pct<12?'var(--orange3)':'var(--red2)';
     const barW = Math.min(100, pct*5);
     const iCost = resInitCost(scp.cls);
-    html+=`<div class="scard${scp.breach?' breaching':''}">
+    const cardClass = scp.breach ? ' breaching' : scp.roaming ? ' roaming' : '';
+    const statusTag = scp.breach
+      ? '<span class="breach-tag">⚠ BREACH</span>'
+      : scp.roaming
+        ? '<span class="roaming-tag">🔵 ROAMING</span>'
+        : '<span class="contained-tag">● CONTAINED</span>';
+    html+=`<div class="scard${cardClass}">
       <div class="sc-hd">
         <span class="sc-id">${scp.id}</span>
         <div class="sc-hd-r">
-          ${scp.breach?'<span class="breach-tag">⚠ BREACH</span>':'<span class="contained-tag">● CONTAINED</span>'}
+          ${statusTag}
           <span class="cls-badge cls-${scp.cls}">${scp.cls}</span>
         </div>
       </div>
@@ -1313,7 +1629,7 @@ function renderSCPs() {
       <div class="sc-grid">
         <span class="sg-l">Breach Risk/Day</span><span class="sg-v">${pct.toFixed(1)}%</span>
         <span class="sg-l">Contain Cost</span><span class="sg-v">${fmt$(scp.cCost)}/day</span>
-        <span class="sg-l">Recontain Cost</span><span class="sg-v">${fmt$(scp.rCost)}</span>
+        <span class="sg-l">Recontain Cost</span><span class="sg-v">${scp.cls==='Safe'?'Free':fmt$(scp.rCost)}</span>
         <span class="sg-l">Research</span><span class="sg-v">${Math.floor(scp.research)}%</span>
       </div>
       <div class="risk-track"><div class="risk-fill" style="width:${barW}%;background:${barCol}"></div></div>
@@ -1321,14 +1637,15 @@ function renderSCPs() {
       <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
       <div class="sc-btns">
         ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasSecurity()&&!G.paused?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
+        ${scp.roaming&&!scp.recontainPending?`<button class="sc-btn" style="border-color:var(--blue2);color:var(--blue3)" onclick="recontain('${scp.id}')" ${hasSecurity()&&!G.paused?'':'disabled'}>↩ Return to Chamber (Free)</button>`:''}
         ${scp.recontainPending?`
           <div class="recontain-wrap">
-            <div class="recontain-lbl">Recontainment in progress</div>
+            <div class="recontain-lbl">${scp.roaming?'Returning to chamber':'Recontainment in progress'}</div>
             <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
-            <div class="recontain-sub">Containment team en route. Active breach status remains until complete.</div>
+            <div class="recontain-sub">${scp.roaming?'Personnel escorting anomaly back to containment chamber.':'Containment team en route. Active breach status remains until complete.'}</div>
           </div>`:''}
-        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
-        ${scp.researching&&!scp.breach?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
+        ${!scp.breach&&!scp.roaming&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
+        ${scp.researching&&!scp.breach&&!scp.roaming?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
         ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">✓ Breach risk reduced 60%</span>`:''}
       </div>
     </div>`;
@@ -1399,7 +1716,7 @@ function renderResearch() {
       </div>
       ${scp.research<100?`<div style="margin-top:5px">
         ${!scp.researching
-          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>Begin (${fmt$(iC)})</button>`
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach||scp.roaming||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>Begin (${fmt$(iC)})</button>${scp.roaming?'<span style="font-size:9px;color:var(--blue3);margin-left:6px">Return anomaly to chamber first</span>':''}`
           :`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>Suspend</button>`}
       </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">✓ Breach risk reduced 60%</div>`}
     </div>`;
@@ -1429,16 +1746,26 @@ function renderReports() {
     </div>
     ${raid ? `
     <div class="fsec">
-      <div class="fhd">Chaos Insurgency Raid</div>
+      <div class="fhd">Chaos Insurgency ${raid.warning ? 'Warning' : 'Raid'}</div>
+      ${raid.warning ? `
+      <div class="frow"><span class="fl">Status</span><span class="fv" style="color:var(--orange3)">Warning — Hostiles Inbound</span></div>
+      <div class="frow"><span class="fl">Time Until Breach</span><span class="fv" style="color:var(--orange3)">${raid.warningRemaining.toFixed(1)}h</span></div>
+      <div class="frow"><span class="fl">Pre-Deploy Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_EARLY_COST)}</span></div>
+      <div class="frow"><span class="fl">Standard Response Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_COST)}</span></div>
+      <div style="margin-top:6px">
+        ${raid.prepaid
+          ? `<div style="font-size:10px;color:var(--green3);line-height:1.6">✓ Response teams pre-deployed. They will auto-engage when hostiles breach. Response window: ${CHAOS_RAID_DURATION_EARLY}h.</div>`
+          : `<button class="sc-btn danger" onclick="stopChaosRaid()" ${G.paused?'disabled':''}>Pre-Deploy Response Teams (${fmt$(CHAOS_RAID_EARLY_COST)})</button>`}
+      </div>` : `
       <div class="frow"><span class="fl">Status</span><span class="fv exp">${raid.responseActive ? 'Response in progress' : 'Hostiles on-site'}</span></div>
       <div class="frow"><span class="fl">Elapsed</span><span class="fv neu">${raid.elapsed.toFixed(1)}h</span></div>
       <div class="frow"><span class="fl">Response Time</span><span class="fv neu">${raid.responseActive ? `${raid.responseRemaining.toFixed(1)}h remaining` : 'Not initiated'}</span></div>
-      <div class="frow"><span class="fl">Elimination Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_COST)}</span></div>
+      <div class="frow"><span class="fl">Elimination Cost</span><span class="fv exp">${raid.prepaid ? `Pre-paid ${fmt$(CHAOS_RAID_EARLY_COST)}` : fmt$(CHAOS_RAID_COST)}</span></div>
       <div style="margin-top:6px">
         ${!raid.responseActive
           ? `<button class="sc-btn danger" onclick="stopChaosRaid()" ${G.paused?'disabled':''}>Stop the raid and eliminate hostiles (${fmt$(CHAOS_RAID_COST)})</button>`
           : `<div style="font-size:10px;color:var(--txt2);line-height:1.6">Containment teams are engaged. The raid can still breach SCPs while the response timer runs.</div>`}
-      </div>
+      </div>`}
     </div>` : ''}
     <div class="fsec">
       <div class="fhd">Current Personnel (${allPers} total)</div>
@@ -1517,6 +1844,7 @@ function renderAll() {
   renderHeader();
   renderPersonnel();
   renderSCPs();
+  renderRaidOverlay();
   if (curTab==='finance') renderFinance();
   else if (curTab==='research') renderResearch();
   else renderReports();
