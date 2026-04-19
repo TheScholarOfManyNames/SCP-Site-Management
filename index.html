@@ -422,6 +422,45 @@ body::after{
 }
 #raidBadge.show{display:block}
 
+/* ── RAID TOP POP-UP ── */
+#raidTopBar{
+  display:none;position:fixed;top:8px;left:50%;
+  transform:translateX(-50%);
+  width:min(760px,calc(100vw - 16px));
+  z-index:6050;
+  background:linear-gradient(180deg,#140006,#090006);
+  border:1px solid var(--red2);
+  box-shadow:0 12px 30px rgba(0,0,0,.58), 0 0 18px rgba(200,0,0,.18);
+  padding:10px 12px;
+  gap:10px;align-items:center;justify-content:space-between;
+  cursor:pointer;
+}
+#raidTopBar.show{display:flex}
+.raidTopCopy{min-width:0;flex:1}
+.raidTopTitle{
+  color:var(--red2);font-size:12px;font-weight:700;
+  letter-spacing:2px;font-family:var(--mono);margin-bottom:2px;
+  text-transform:uppercase;
+}
+.raidTopSub{
+  color:var(--txt2);font-size:10px;line-height:1.35;
+  font-family:var(--mono);letter-spacing:.2px;
+}
+#raidTopStopBtn{
+  flex-shrink:0;background:var(--red);border:none;color:#fff;
+  font-family:var(--mono);font-size:10px;padding:10px 12px;
+  cursor:pointer;letter-spacing:1.5px;text-transform:uppercase;
+  border-radius:10px;min-width:170px;
+}
+#raidTopStopBtn:hover{background:var(--red2)}
+#raidTopStopBtn:disabled{background:#1a1a22;color:var(--dim);cursor:not-allowed}
+
+/* ── RAID TOP POP-UP (mobile) ── */
+body.mobile #raidTopBar{
+  top:8px;width:calc(100vw - 16px);
+  padding:10px 10px;
+}
+body.mobile #raidTopStopBtn{min-width:132px;padding:10px 8px;font-size:9px}
 
 #notifs{
   position:fixed;bottom:134px;right:10px;
@@ -611,13 +650,22 @@ body.mobile .lt{min-width:54px}
     <div class="ro-stats" id="roStats"></div>
     <div class="ro-actions">
       <button id="roStopBtn" onclick="stopChaosRaid()"></button>
-      <button class="ro-dismiss" onclick="dismissRaidOverlay()">✕ Acknowledge &amp; Dismiss</button>
+      <button class="ro-dismiss" onclick="dismissRaidOverlay()">✕ Acknowledge and Ignore</button>
     </div>
   </div>
 </div>
 
 <!-- RAID ACTIVE BADGE -->
 <div id="raidBadge" onclick="showRaidOverlay()">⚠ RAID ACTIVE</div>
+
+<!-- RAID TOP POP-UP -->
+<div id="raidTopBar" aria-live="polite" role="button" onclick="showRaidOverlay()">
+  <div class="raidTopCopy">
+    <div class="raidTopTitle" id="raidTopTitle">⚠ RAID ALERT</div>
+    <div class="raidTopSub" id="raidTopSub">Opening incident details…</div>
+  </div>
+  <button id="raidTopStopBtn" type="button" onclick="event.stopPropagation(); stopChaosRaid()"></button>
+</div>
 
 <!-- GAME OVER -->
 <div id="gameOver">
@@ -761,16 +809,21 @@ const CHAOS_RAID_COST          = 200000; // cost if player responds AFTER raid l
 const CHAOS_RAID_EARLY_COST    = 150000; // cost if player pre-deploys during warning
 const CHAOS_RAID_DURATION_HOURS = 5;    // response timer when reacting after landing
 const CHAOS_RAID_DURATION_EARLY = 4;    // response timer when pre-deployed
-const CHAOS_RAID_WARNING_HOURS  = 1.5;  // advance-warning window before raid lands
+const CHAOS_RAID_WARNING_HOURS  = 0.5;  // advance-warning window before raid lands
 
 const DEPT_DEFS = {
   security:{
     label:"Security Department",col:"#bb4444",
     roles:[
-      {role:"MTF Commander",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
-      {role:"MTF Agent",lvl:"LVL-2",cost:1000,key:false,max:25,start:5},
       {role:"Security Captain",lvl:"LVL-3",cost:1500,key:true,max:2,start:1},
       {role:"Security Officer",lvl:"LVL-1",cost:500,key:false,max:40,start:8},
+    ]
+  },
+  mtf:{
+    label:"Mobile Task Forces",col:"#cc6644",
+    roles:[
+      {role:"MTF Commander",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
+      {role:"MTF Agent",lvl:"LVL-2",cost:1000,key:false,max:25,start:5},
     ]
   },
   research:{
@@ -822,7 +875,7 @@ function initState(siteNum) {
     performance:75,
     depts, scps,
     scpQueue: [...SCP_QUEUE_DEFS],
-    nextScpDay: 40,
+    nextScpDay: 20,
     nextGrantDay: 30,
     grantBase: 2500000,
     activeBreaches: [],
@@ -933,25 +986,78 @@ function suspendResearchIfNoScientists() {
 function showRaidOverlay() {
   document.getElementById('raidOverlay').classList.add('show');
   document.getElementById('raidBadge').classList.remove('show');
+  updateRaidTopBar();
   renderRaidOverlay();
 }
 function dismissRaidOverlay() {
+  if (G.chaosRaid) G.chaosRaid.overlayAcknowledged = true;
   document.getElementById('raidOverlay').classList.remove('show');
-  const raid = G.chaosRaid;
-  if (raid?.active || raid?.warning) {
-    const badge = document.getElementById('raidBadge');
-    badge.textContent = raid.warning ? '⚠ RAID WARNING' : '⚠ RAID ACTIVE';
-    badge.style.background = raid.warning ? 'var(--orange)' : 'var(--red)';
-    badge.classList.add('show');
-  }
+  updateRaidTopBar();
 }
 function hideRaidOverlayAndBadge() {
   document.getElementById('raidOverlay').classList.remove('show');
   document.getElementById('raidBadge').classList.remove('show');
+  document.getElementById('raidTopBar').classList.remove('show');
+}
+function updateRaidTopBar() {
+  const raid = G.chaosRaid;
+  const bar = document.getElementById('raidTopBar');
+  const title = document.getElementById('raidTopTitle');
+  const sub = document.getElementById('raidTopSub');
+  const btn = document.getElementById('raidTopStopBtn');
+  const overlayOpen = document.getElementById('raidOverlay').classList.contains('show');
+  if (!raid) {
+    bar.classList.remove('show');
+    return;
+  }
+
+  if (overlayOpen) {
+    bar.classList.remove('show');
+    return;
+  }
+
+  bar.classList.add('show');
+
+  if (raid.warning) {
+    title.textContent = '⚠ CHAOS INSURGENCY WARNING';
+    sub.textContent = `Hostiles inbound · ${raid.warningRemaining.toFixed(1)}h until breach`;
+    if (raid.prepaid) {
+      btn.disabled = true;
+      btn.style.background = 'var(--green)';
+      btn.textContent = '✓ Pre-Deploy Complete';
+    } else {
+      const budgetOk = G.budget >= CHAOS_RAID_EARLY_COST;
+      btn.disabled = G.paused || !budgetOk;
+      btn.style.background = '';
+      btn.textContent = budgetOk
+        ? `Pre-Deploy (${fmt$(CHAOS_RAID_EARLY_COST)})`
+        : `Need ${fmt$(CHAOS_RAID_EARLY_COST)}`;
+    }
+    return;
+  }
+
+  title.textContent = '⚠ CHAOS INSURGENCY RAID';
+  sub.textContent = raid.responseActive
+    ? `Response active · ${raid.responseRemaining.toFixed(1)}h remaining`
+    : 'Site perimeter compromised · tap to open details';
+
+  if (raid.responseActive) {
+    btn.disabled = true;
+    btn.style.background = 'var(--green)';
+    btn.textContent = '✓ Response Deployed';
+  } else {
+    const budgetOk = G.budget >= CHAOS_RAID_COST;
+    btn.disabled = G.paused || !budgetOk;
+    btn.style.background = '';
+    btn.textContent = budgetOk
+      ? `Stop Raid (${fmt$(CHAOS_RAID_COST)})`
+      : `Need ${fmt$(CHAOS_RAID_COST)}`;
+  }
 }
 function renderRaidOverlay() {
   const raid = G.chaosRaid;
   if (!raid) { hideRaidOverlayAndBadge(); return; }
+  updateRaidTopBar();
 
   const statsEl  = document.getElementById('roStats');
   const stopBtn  = document.getElementById('roStopBtn');
@@ -1030,20 +1136,22 @@ function renderRaidOverlay() {
   }
 }
 
-// ── Phase 1: start the 1.5h warning window ─────────────────────────────────
+// ── Phase 1: start the 0.5h warning window ─────────────────────────────────
 function triggerChaosRaidWarning() {
   if (G.over || G.chaosRaid) return;
   G.chaosRaid = {
     active: false, warning: true,
     warningRemaining: CHAOS_RAID_WARNING_HOURS,
     prepaid: false,
-    responseActive: false, responseRemaining: 0, elapsed: 0
+    responseActive: false, responseRemaining: 0, elapsed: 0,
+    overlayAcknowledged: false
   };
   addLog('CHAOS INSURGENCY ALERT: Hostile units detected approaching the facility. Deploy response units immediately.', 'warn');
   notify('⚠ CI FORCES DETECTED',
     `Chaos Insurgency operatives inbound. You have ${CHAOS_RAID_WARNING_HOURS}h to pre-deploy response teams at reduced cost.`,
     'warn', 12000);
   showRaidOverlay();
+  updateRaidTopBar();
 }
 
 // ── Phase 2: raid arrives (called when warning timer expires) ────────────────
@@ -1055,7 +1163,8 @@ function triggerChaosRaid() {
     prepaid: wasPrepaid,
     responseActive: wasPrepaid,
     responseRemaining: wasPrepaid ? CHAOS_RAID_DURATION_EARLY : 0,
-    elapsed: 0
+    elapsed: 0,
+    overlayAcknowledged: false
   };
   addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
   destroyResearchResults('Chaos Insurgency raid');
@@ -1070,6 +1179,7 @@ function triggerChaosRaid() {
   } else {
     showRaidOverlay();
   }
+  updateRaidTopBar();
 }
 
 function stopChaosRaid() {
@@ -1090,6 +1200,7 @@ function stopChaosRaid() {
     notify('✓ Response Teams Pre-Deployed',
       `Teams ready to engage on arrival. Elimination window reduced to ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok', 8000);
     renderAll();
+    updateRaidTopBar();
     return;
   }
 
@@ -1105,6 +1216,7 @@ function stopChaosRaid() {
   raid.responseRemaining = CHAOS_RAID_DURATION_HOURS;
   addLog(`CHAOS CONTAINMENT RESPONSE INITIATED — hostiles will be hunted for up to ${CHAOS_RAID_DURATION_HOURS} hours. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn');
   renderAll();
+  updateRaidTopBar();
 }
 function advanceChaosRaidHalfHour() {
   const raid = G.chaosRaid;
@@ -1144,6 +1256,7 @@ function advanceChaosRaidHalfHour() {
       notify('✓ RAID ELIMINATED', 'Chaos hostiles have been neutralized.', 'ok', 9000);
       G.chaosRaid = null;
       hideRaidOverlayAndBadge();
+      updateRaidTopBar();
     }
   }
 }
@@ -1173,18 +1286,24 @@ function causeCasualty(source) {
     if (!pool.length) return false;
     choice = pool[Math.floor(Math.random() * pool.length)];
   } else {
-    // Breach / CI raid: Stage 1 — all non-admin staff drawn randomly.
-    // Stage 2 — Administration only after everyone else is gone.
-    const nonAdminPool = [];
+    // Breach / CI raid: frontline departments are more likely to absorb casualties.
+    // Administration remains protected until all non-admin staff are gone.
+    const weightedNonAdminPool = [];
     const adminPool = [];
+    const frontlineDepartments = new Set(['security', 'mtf']);
+    const frontlineWeight = 3; // bias raids/breaches toward Security and MTF
+
     for (const [dk, dept] of Object.entries(G.depts)) {
+      const bucket = dk === 'admin' ? adminPool : weightedNonAdminPool;
+      const weight = frontlineDepartments.has(dk) ? frontlineWeight : 1;
       for (let ri = 0; ri < dept.roles.length; ri++) {
         for (let n = 0; n < dept.roles[ri].count; n++) {
-          (dk === 'admin' ? adminPool : nonAdminPool).push({ dk, ri });
+          for (let w = 0; w < weight; w++) bucket.push({ dk, ri });
         }
       }
     }
-    const attackPool = nonAdminPool.length ? nonAdminPool : adminPool;
+
+    const attackPool = weightedNonAdminPool.length ? weightedNonAdminPool : adminPool;
     if (!attackPool.length) return false;
     choice = attackPool[Math.floor(Math.random() * attackPool.length)];
   }
@@ -1626,12 +1745,14 @@ function renderSCPs() {
       <div class="sc-name">"${scp.name}"</div>
       <div class="sc-desc">${scp.desc}</div>
       <div class="sc-grid">
-        <span class="sg-l">Breach Risk/Day</span><span class="sg-v">${pct.toFixed(1)}%</span>
+        <span class="sg-l">${scp.cls==='Safe'?'Roaming Risk/Day':'Breach Risk/Day'}</span><span class="sg-v">${pct.toFixed(1)}%</span>
         <span class="sg-l">Contain Cost</span><span class="sg-v">${fmt$(scp.cCost)}/day</span>
         <span class="sg-l">Recontain Cost</span><span class="sg-v">${scp.cls==='Safe'?'Free':fmt$(scp.rCost)}</span>
         <span class="sg-l">Research</span><span class="sg-v">${Math.floor(scp.research)}%</span>
       </div>
-      <div class="risk-track"><div class="risk-fill" style="width:${barW}%;background:${barCol}"></div></div>
+      ${scp.cls==='Safe'
+        ? ''
+        : `<div class="risk-track"><div class="risk-fill" style="width:${barW}%;background:${barCol}"></div></div>`}
       <div class="res-track"><div class="res-fill" style="width:${scp.research}%"></div></div>
       <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
       <div class="sc-btns">
@@ -1844,6 +1965,7 @@ function renderAll() {
   renderPersonnel();
   renderSCPs();
   renderRaidOverlay();
+  updateRaidTopBar();
   if (curTab==='finance') renderFinance();
   else if (curTab==='research') renderResearch();
   else renderReports();
@@ -1871,7 +1993,7 @@ function setSpeed(s) {
   document.getElementById(`spd${s}`).classList.add('on');
   clearInterval(gameInt);
   if (!G.paused && !G.over) {
-    gameInt = setInterval(tick, s===1?1100:380);
+    gameInt = setInterval(tick, s===1?6000:2000);
   }
 }
 
