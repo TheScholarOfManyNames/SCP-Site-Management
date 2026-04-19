@@ -1146,6 +1146,7 @@ function renderRaidOverlay() {
 // ── Phase 1: start the 0.5h warning window ─────────────────────────────────
 function triggerChaosRaidWarning() {
   if (G.over || G.chaosRaid) return;
+  setSpeed(1); // ← ADD THIS: drop to 1x so the pre-deploy window is usable
   G.chaosRaid = {
     active: false, warning: true,
     warningRemaining: CHAOS_RAID_WARNING_HOURS,
@@ -1165,7 +1166,6 @@ function triggerChaosRaidWarning() {
 function triggerChaosRaid() {
   if (G.over) return;
   const wasPrepaid = G.chaosRaid?.prepaid || false;
-  setSpeed(1)
   G.chaosRaid = {
     active: true, warning: false, warningRemaining: 0,
     prepaid: wasPrepaid,
@@ -1254,7 +1254,7 @@ function stopChaosRaid() {
 }
 function advanceChaosRaidHalfHour() {
   const raid = G.chaosRaid;
-  if (!raid) return;
+  if (!raid) return false;
 
   // ── Warning countdown ────────────────────────────────────────────────────
   if (raid.warning) {
@@ -1265,12 +1265,13 @@ function advanceChaosRaidHalfHour() {
       hideRaidOverlayAndBadge();
       triggerChaosRaid();
       if (!G.chaosRaid?.prepaid) showRaidOverlay();
+      return true; // transition just happened; caller must skip the second advance
     }
-    return;
+    return false;
   }
 
   // ── Active raid damage tick ──────────────────────────────────────────────
-  if (!raid.active) return;
+  if (!raid.active) return false;
   raid.elapsed += 0.5;
   const candidates = Object.values(G.scps).filter(s => !s.breach && !s.roaming);
   if (candidates.length) {
@@ -1288,11 +1289,13 @@ function advanceChaosRaidHalfHour() {
       raid.active = false;
       addLog('CHAOS INSURGENCY RAID ELIMINATED — hostiles neutralized and site perimeter secured.', 'ok');
       notify('✓ RAID ELIMINATED', 'Chaos hostiles have been neutralized.', 'ok', 9000);
+      beginRaidSCPSweep(); // sweep any SCPs that breached during the response window
       G.chaosRaid = null;
       hideRaidOverlayAndBadge();
       updateRaidTopBar();
     }
   }
+  return false;
 }
 
 
@@ -1650,8 +1653,8 @@ function tick() {
   // Advance raid BEFORE the day block, so a freshly-triggered warning
   // isn't immediately eaten in the same tick it's created.
   if (G.chaosRaid?.active || G.chaosRaid?.warning) {
-    advanceChaosRaidHalfHour();
-    advanceChaosRaidHalfHour();
+    const transitioned = advanceChaosRaidHalfHour();
+    if (!transitioned) advanceChaosRaidHalfHour();
   }
 
   if (G.hour >= 24) {
