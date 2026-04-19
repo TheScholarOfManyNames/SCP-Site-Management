@@ -1180,7 +1180,7 @@ function tick() {
     if (!G.chaosRaid?.active) tickResearch();
     suspendResearchIfNoScientists();
     G.performance = Math.min(100, G.performance+1);
-    if (Math.random() < 0.015) triggerChaosRaid();
+    if (Math.random() < 0.02) triggerChaosRaid();
     if (G.day>=G.nextGrantDay) processGrant();
     if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
     if (G.budget < -1000000) {
