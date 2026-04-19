@@ -523,7 +523,7 @@ body.mobile .hst-val{font-size:12px;line-height:1.2}
 body.mobile .perf-wrap{width:100%}
 body.mobile .perf-track{flex:1;width:auto}
 body.mobile .spd-btns{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:100%;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%;
 }
 body.mobile .spd-btn{padding:8px 0;font-size:10px}
 body.mobile #main{
@@ -707,6 +707,8 @@ body.mobile .lt{min-width:54px}
         <button class="spd-btn" id="spd0" onclick="setSpeed(0)">⏸</button>
         <button class="spd-btn on" id="spd1" onclick="setSpeed(1)">1×</button>
         <button class="spd-btn" id="spd3" onclick="setSpeed(3)">3×</button>
+        <button class="spd-btn" id="spd5" onclick="setSpeed(5)">5×</button>
+        <button class="spd-btn" id="spd10" onclick="setSpeed(10)">10×</button>
       </div>
     </div>
   </div>
@@ -1990,10 +1992,12 @@ function setSpeed(s) {
   G.speed = s;
   G.paused = s===0;
   document.querySelectorAll('.spd-btn').forEach(b=>b.classList.remove('on'));
-  document.getElementById(`spd${s}`).classList.add('on');
+  const activeBtn = document.getElementById(`spd${s}`);
+  if (activeBtn) activeBtn.classList.add('on');
   clearInterval(gameInt);
   if (!G.paused && !G.over) {
-    gameInt = setInterval(tick, s===1?6000:2000);
+    const speedIntervals = {1: 6000, 3: 2000, 5: 1200, 10: 600};
+    gameInt = setInterval(tick, speedIntervals[s] || 6000);
   }
 }
 
