@@ -948,6 +948,8 @@ function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Conta
 function containmentStaff() { return G.depts.containment.roles.reduce((s,r)=>s+r.count,0); }
 function hasResearchers() { return researchers() > 0; }
 function hasSecurity() { return security() > 0; }
+function mtf() { return G.depts.mtf.roles.reduce((s,r)=>s+r.count,0); }
+function hasRecontainmentTeam() { return hasSecurity() || mtf() > 0; }
 function hasContainment() { return containmentStaff() > 0; }
 function insufficientPersonnel(kind, need) {
   notify('Insufficient Personnel', need, 'breach', 7000);
@@ -1079,7 +1081,7 @@ function renderRaidOverlay() {
     bodyEl.textContent  = 'Intelligence has confirmed Chaos Insurgency operatives advancing on this facility. '
       + 'You have a limited window to pre-deploy response units. '
       + 'Doing so now is cheaper and will shorten the engagement window once hostiles breach. '
-      + 'The raid cannot be prevented — damage will still occur when they arrive.';
+      + 'The raid cannot be prevented — damage will still occur when they arrive, but any loose SCPs will be swept up by the response teams.';
 
     const budgetOk = G.budget >= CHAOS_RAID_EARLY_COST;
     statsEl.innerHTML = `
@@ -1107,7 +1109,7 @@ function renderRaidOverlay() {
   titleEl.textContent = '⚠ CHAOS INSURGENCY RAID';
   subEl.textContent   = 'Site Perimeter Compromised — All Personnel to Stations';
   bodyEl.textContent  = 'Chaos Insurgency operatives have breached the site perimeter. SCP breaches will continue '
-    + 'and personnel casualties will mount until the raid is neutralized.';
+    + 'and personnel casualties will mount until the raid is neutralized. Loose anomalies are swept up as part of the response.';
   stopBtn.style.background = '';
 
   const elapsed  = raid.elapsed.toFixed(1);
@@ -1169,22 +1171,49 @@ function triggerChaosRaid() {
     responseActive: wasPrepaid,
     responseRemaining: wasPrepaid ? CHAOS_RAID_DURATION_EARLY : 0,
     elapsed: 0,
+    justStarted: true,
     overlayAcknowledged: false
   };
+  setSpeed(1)
   addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
   destroyResearchResults('Chaos Insurgency raid');
   const raidCasualties = Math.max(3, Math.ceil(totalPers() * 0.08));
   for (let i = 0; i < raidCasualties; i++) {
     if (!causeCasualty('chaos')) break;
-  }
-  setSpeed(1);
+  };
   if (wasPrepaid) {
     addLog(`CHAOS RESPONSE AUTO-ACTIVATED — pre-deployed teams now engaging. Elimination window: ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok');
     notify('⚡ RAID — RESPONSE ACTIVE', 'Pre-deployed teams engaging hostiles automatically.', 'warn', 9000);
+    beginRaidSCPSweep();
   } else {
     showRaidOverlay();
   }
   updateRaidTopBar();
+}
+
+function beginRaidSCPSweep() {
+  if (!hasRecontainmentTeam()) {
+    addLog('RAID CONTAINMENT SWEEP SKIPPED — no Security Department or MTF personnel remain to recontain loose SCPs.', 'warn');
+    notify('Insufficient Personnel', 'No recontainment teams remain. Loose SCPs must be handled manually.', 'breach', 9000);
+    return;
+  }
+
+  const looseScps = [];
+  for (const scp of Object.values(G.scps)) {
+    if ((scp.breach || scp.roaming) && !scp.recontainPending) {
+      scp.recontainPending = true;
+      scp.recontainDuration = recontainDurationHours(scp.cls);
+      scp.recontainRemaining = scp.recontainDuration;
+      looseScps.push(scp.id);
+    }
+  }
+
+  if (!looseScps.length) return;
+
+  addLog(`RAID CONTAINMENT SWEEP INITIATED — ${looseScps.join(', ')} now being recontained while hostiles are engaged.`, 'warn');
+  notify('⚡ RAID CONTAINMENT SWEEP', `${looseScps.length} loose SCP${looseScps.length>1?'s':''} are being recontained alongside the CI raid.`, 'warn', 9000);
+  ensureRecontainTicker();
+  renderAll();
 }
 
 function stopChaosRaid() {
@@ -1220,6 +1249,7 @@ function stopChaosRaid() {
   raid.responseActive = true;
   raid.responseRemaining = CHAOS_RAID_DURATION_HOURS;
   addLog(`CHAOS CONTAINMENT RESPONSE INITIATED — hostiles will be hunted for up to ${CHAOS_RAID_DURATION_HOURS} hours. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn');
+  beginRaidSCPSweep();
   renderAll();
   updateRaidTopBar();
 }
@@ -1242,6 +1272,11 @@ function advanceChaosRaidHalfHour() {
 
   // ── Active raid damage tick ──────────────────────────────────────────────
   if (!raid.active) return;
+  if (raid.justStarted) {
+    raid.justStarted = false;
+    updateRaidTopBar();
+    return;
+  }
   raid.elapsed += 0.5;
   const candidates = Object.values(G.scps).filter(s => !s.breach && !s.roaming);
   if (candidates.length) {
@@ -1433,7 +1468,7 @@ function ensureRecontainTicker() {
     }
     if (G.paused) return;
 
-    if (!hasSecurity()) {
+    if (!hasRecontainmentTeam()) {
       const pending = Object.values(G.scps).filter(s => s.recontainPending).length;
       if (pending) {
         for (const scp of Object.values(G.scps)) {
@@ -1442,8 +1477,8 @@ function ensureRecontainTicker() {
           scp.recontainRemaining = 0;
           scp.recontainDuration = 0;
         }
-        addLog('Recontainment suspended — Security Department is empty.', 'warn');
-        notify('Insufficient Personnel', 'No recontainment can continue without Security Department staff.', 'breach', 8000);
+        addLog('Recontainment suspended — Security Department and MTF are both unavailable.', 'warn');
+        notify('Insufficient Personnel', 'No recontainment can continue without Security Department or MTF staff.', 'breach', 8000);
         renderAll();
       }
       clearInterval(recontainInt);
@@ -1472,7 +1507,7 @@ function recontain(id) {
   if (G.paused) return;
   const scp = G.scps[id];
   if (scp.recontainPending) return;
-  if (!hasSecurity()) { insufficientPersonnel('Security Department', 'No recontainment is possible until the Security Department has at least one member.'); return; }
+  if (!hasRecontainmentTeam()) { insufficientPersonnel('Security Department / MTF', 'No recontainment is possible until either the Security Department or Mobile Task Forces have personnel available.'); return; }
 
   // Roaming Safe SCPs: free recontainment, no budget charge
   if (scp.roaming) {
@@ -1769,8 +1804,8 @@ function renderSCPs() {
       <div class="res-track"><div class="res-fill" style="width:${scp.research}%"></div></div>
       <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
       <div class="sc-btns">
-        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasSecurity()&&!G.paused?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
-        ${scp.roaming&&!scp.recontainPending?`<button class="sc-btn" style="border-color:var(--blue2);color:var(--blue3)" onclick="recontain('${scp.id}')" ${hasSecurity()&&!G.paused?'':'disabled'}>↩ Return to Chamber (Free)</button>`:''}
+        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasRecontainmentTeam()&&!G.paused?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
+        ${scp.roaming&&!scp.recontainPending?`<button class="sc-btn" style="border-color:var(--blue2);color:var(--blue3)" onclick="recontain('${scp.id}')" ${hasRecontainmentTeam()&&!G.paused?'':'disabled'}>↩ Return to Chamber (Free)</button>`:''}
         ${scp.recontainPending?`
           <div class="recontain-wrap">
             <div class="recontain-lbl">${scp.roaming?'Returning to chamber':'Recontainment in progress'}</div>
@@ -1899,7 +1934,7 @@ function renderReports() {
       <div style="margin-top:6px">
         ${!raid.responseActive
           ? `<button class="sc-btn danger" onclick="stopChaosRaid()" ${G.paused?'disabled':''}>Stop the raid and eliminate hostiles (${fmt$(CHAOS_RAID_COST)})</button>`
-          : `<div style="font-size:10px;color:var(--txt2);line-height:1.6">Containment teams are engaged. The raid can still breach SCPs while the response timer runs.</div>`}
+          : `<div style="font-size:10px;color:var(--txt2);line-height:1.6">Containment teams are engaged. Loose SCPs are being swept up alongside the CI raid while the response timer runs.</div>`}
       </div>`}
     </div>` : ''}
     <div class="fsec">
