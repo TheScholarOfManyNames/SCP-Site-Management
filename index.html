@@ -818,7 +818,7 @@ function initState(siteNum) {
     scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   }
   G = {
-    siteNum, day:1, hour:0, budget:2500000,
+    siteNum, day:1, hour:0, budget:3000000,
     performance:75,
     depts, scps,
     scpQueue: [...SCP_QUEUE_DEFS],
@@ -1215,8 +1215,8 @@ function breachChance(scp) {
   // Safe is least likely, Keter sits in the middle,
   // and Euclid is most likely to breach under routine containment pressure.
   const classBase = {
-    Safe: 0.00100,
-    Keter: 0.0500,
+    Safe: 0.02000,
+    Keter: 0.00500,
     Euclid: 0.01000,
   }[scp.cls] || 0.001;
 
