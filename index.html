@@ -423,6 +423,7 @@ body::after{
 #raidBadge.show{display:block}
 
 
+#notifs{
   position:fixed;bottom:134px;right:10px;
   z-index:800;display:flex;flex-direction:column;gap:5px;max-width:280px;
 }
@@ -1482,43 +1483,41 @@ function processGrant() {
 // GAME TICK
 // ══════════════════════════════════════════════════════
 function tick() {
-  if (G.paused||G.over) return;
+  if (G.paused || G.over) return;
   G.hour++;
-  if (G.hour>=24) {
-    G.hour=0; G.day++;
+
+  // Advance raid BEFORE the day block, so a freshly-triggered warning
+  // isn't immediately eaten in the same tick it's created.
+  if (G.chaosRaid?.active || G.chaosRaid?.warning) {
+    advanceChaosRaidHalfHour();
+    advanceChaosRaidHalfHour();
+  }
+
+  if (G.hour >= 24) {
+    G.hour = 0; G.day++;
     G.budget -= dailyCost();
     if (!G.chaosRaid?.active) tickResearch();
     suspendResearchIfNoScientists();
-    G.performance = Math.min(100, G.performance+1);
+    G.performance = Math.min(100, G.performance + 1);
     if (!G.chaosRaid && Math.random() < 0.04) triggerChaosRaidWarning();
-    if (G.day>=G.nextGrantDay) processGrant();
-    if (G.day>=G.nextScpDay && G.scpQueue.length) addSCP();
+    if (G.day >= G.nextGrantDay) processGrant();
+    if (G.day >= G.nextScpDay && G.scpQueue.length) addSCP();
     if (G.budget < -1000000) {
       endGame('Financial collapse. The O5 Council has terminated Site operations due to insolvency.'); return;
     }
     if (G.budget < 0) {
       addLog('WARNING: Budget in deficit. Austerity measures required.', 'warn');
-      G.performance = Math.max(0, G.performance-4);
+      G.performance = Math.max(0, G.performance - 4);
     }
     if (!hasContainment()) {
       triggerMassContainmentBreach();
     } else {
       G.containmentCollapseActive = false;
     }
-    // All personnel wiped check
-    const allDead = Object.values(G.depts).every(d => d.roles.reduce((s,r)=>s+r.count,0)===0);
+    const allDead = Object.values(G.depts).every(d => d.roles.reduce((s, r) => s + r.count, 0) === 0);
     if (allDead) { endGame('All site personnel have been lost. Operations cannot continue.'); return; }
   }
-  if (G.chaosRaid?.active || G.chaosRaid?.warning) {
-    advanceChaosRaidHalfHour();
-    advanceChaosRaidHalfHour();
-  } else {
-    // Hourly breach check
-    for (const [id,scp] of Object.entries(G.scps)) {
-      if (scp.breach || scp.roaming) continue;
-      if (Math.random()<breachChance(scp)) triggerBreach(id);
-    }
-  }
+
   for (const id of [...G.activeBreaches]) {
     const scp = G.scps[id];
     const hourlyFatal = breachCasualtyChance(scp) * 0.35;
