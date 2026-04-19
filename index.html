@@ -1165,6 +1165,7 @@ function triggerChaosRaidWarning() {
 function triggerChaosRaid() {
   if (G.over) return;
   const wasPrepaid = G.chaosRaid?.prepaid || false;
+  setSpeed(1)
   G.chaosRaid = {
     active: true, warning: false, warningRemaining: 0,
     prepaid: wasPrepaid,
@@ -1173,7 +1174,6 @@ function triggerChaosRaid() {
     elapsed: 0,
     overlayAcknowledged: false
   };
-  setSpeed(1)
   addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
   destroyResearchResults('Chaos Insurgency raid');
   const raidCasualties = Math.max(3, Math.ceil(totalPers() * 0.08));
