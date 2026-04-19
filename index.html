@@ -879,7 +879,7 @@ function initState(siteNum) {
     scpQueue: [...SCP_QUEUE_DEFS],
     nextScpDay: 20,
     nextGrantDay: 30,
-    grantBase: 2500000,
+    grantBase: 3000000,
     activeBreaches: [],
     totalCasualties:0, totalBreaches:0, totalResearch:0, researchFundsEarned:0,
     log:[], paused:false, over:false, speed:1,
@@ -1371,7 +1371,7 @@ function breachChance(scp) {
   // Safe is least likely, Keter sits in the middle,
   // and Euclid is most likely to breach under routine containment pressure.
   const classBase = {
-    Safe: 0.02000,
+    Safe: 0.20000,
     Keter: 0.00500,
     Euclid: 0.01000,
   }[scp.cls] || 0.001;
