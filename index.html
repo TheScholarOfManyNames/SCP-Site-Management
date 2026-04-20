@@ -1642,7 +1642,7 @@ function addSCP() {
 // O5 GRANT
 // ══════════════════════════════════════════════════════
 function processGrant() {
-  const mod = 1 + ((G.performance-50)/250);
+  const mod = 1 + ((G.performance-65)/175);
   const grant = Math.round(G.grantBase * mod);
   G.budget += grant;
   G.nextGrantDay = G.day + 30;
@@ -1839,7 +1839,7 @@ function renderSCPs() {
 function renderFinance() {
   const pD=dailyPersonnel(), sD=dailySCP(), rD=dailyResearch(), tD=dailyCost();
   const dToG = Math.max(0, G.nextGrantDay-G.day);
-  const proj = Math.round(G.grantBase*(1+((G.performance-50)/250)));
+  const proj = Math.round(G.grantBase*(1+((G.performance-65)/175)));
   const gPct = Math.min(100,((30-dToG)/30*100)).toFixed(0);
   const budget = G.budget;
   const bCol = budget<0?'var(--red2)':budget<200000?'var(--orange3)':'var(--green3)';
@@ -1862,7 +1862,7 @@ function renderFinance() {
       <div class="frow"><span class="fl">Next transfer in</span><span class="fv neu">${dToG} days</span></div>
       <div class="gbar-track"><div class="gbar-fill" style="width:${gPct}%"></div></div>
       <div class="frow"><span class="fl">Projected grant</span><span class="fv inc">${fmt$(proj)}</span></div>
-      <div class="frow"><span class="fl">Performance modifier</span><span class="fv neu">×${(1+((G.performance-50)/250)).toFixed(2)}</span></div>
+      <div class="frow"><span class="fl">Performance modifier</span><span class="fv neu">×${(1+((G.performance-65)/175)).toFixed(2)}</span></div>
     </div>
     <div class="fsec">
       <div class="fhd">Research Funding</div>
