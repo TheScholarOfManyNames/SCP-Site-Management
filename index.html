@@ -1631,7 +1631,7 @@ function addSCP() {
   }
   G.scpQueue.shift();
   G.scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
-  G.nextScpDay = G.day + 40;
+  G.nextScpDay = G.day + 20;
   addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
   notify(`📦 ANOMALY TRANSFERRED`,
     `${id} — "${d.name}" (${d.cls})\nContainment cost: ${fmt$(d.cCost)}/day`, 'newscp', 10000);
