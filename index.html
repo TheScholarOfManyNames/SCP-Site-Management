@@ -967,19 +967,6 @@ function triggerMassContainmentBreach() {
   }
   if (triggered > 0) renderAll();
 }
-function destroyResearchResults(reason) {
-  const hadResearch = Object.values(G.scps).some(s => s.research > 0 || s.researching);
-  if (!hadResearch && !G.totalResearch) return;
-  for (const scp of Object.values(G.scps)) {
-    scp.research = 0;
-    scp.researching = false;
-    scp.researchPaid = false;
-    scp.researchInitCost = 0;
-  }
-  G.totalResearch = 0;
-  addLog(`RESEARCH DATA LOST: ${reason} — all SCP research has been reset to 0%.`, 'dead');
-  notify('⚠ RESEARCH DATA LOST', `${reason}. All prior research must be redone.`, 'dead', 10000);
-}
 function suspendResearchIfNoScientists() {
   if (hasResearchers()) return;
   let suspended = false;
@@ -1178,7 +1165,6 @@ function triggerChaosRaid() {
     overlayAcknowledged: false
   };
   addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
-  destroyResearchResults('Chaos Insurgency raid');
   const raidCasualties = Math.max(3, Math.ceil(totalPers() * 0.08));
   for (let i = 0; i < raidCasualties; i++) {
     if (!causeCasualty('chaos')) break;
@@ -1280,7 +1266,6 @@ function advanceChaosRaidHalfHour() {
   if (candidates.length) {
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
     triggerBreach(chosen.id);
-    destroyResearchResults(`Chaos Insurgency breached ${chosen.id}`);
   }
   const hostileHits = Math.max(1, Math.ceil(totalPers() * 0.03));
   for (let i = 0; i < hostileHits; i++) {
