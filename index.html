@@ -870,7 +870,7 @@ function initState(siteNum) {
   const scps = {};
   for (const id of ["SCP-173","SCP-096","SCP-131"]) {
     const d = SCP_DB[id];
-    scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+    scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   }
   G = {
     siteNum, day:1, hour:0, budget:3000000,
@@ -879,7 +879,7 @@ function initState(siteNum) {
     scpQueue: [...SCP_QUEUE_DEFS],
     nextScpDay: 20,
     nextGrantDay: 30,
-    grantBase: 3000000,
+    grantBase: 2500000,
     activeBreaches: [],
     totalCasualties:0, totalBreaches:0, totalResearch:0, researchFundsEarned:0,
     log:[], paused:false, over:false, speed:1,
@@ -923,6 +923,7 @@ function totalPers() {
 function dailyPersonnel() {
   return Object.values(G.depts).reduce((s,d) => s + d.roles.reduce((r,ro) => r+ro.count*ro.cost, 0), 0) * BALANCE.personnelDaily;
 }
+function weeklyPersonnel() { return dailyPersonnel() * 7; }
 function dailySCP() {
   return Object.values(G.scps).reduce((s,sc) => s+sc.cCost, 0) * BALANCE.scpDaily;
 }
@@ -972,6 +973,8 @@ function destroyResearchResults(reason) {
   for (const scp of Object.values(G.scps)) {
     scp.research = 0;
     scp.researching = false;
+    scp.researchPaid = false;
+    scp.researchInitCost = 0;
   }
   G.totalResearch = 0;
   addLog(`RESEARCH DATA LOST: ${reason} — all SCP research has been reset to 0%.`, 'dead');
@@ -1371,7 +1374,7 @@ function breachChance(scp) {
   // Safe is least likely, Keter sits in the middle,
   // and Euclid is most likely to breach under routine containment pressure.
   const classBase = {
-    Safe: 0.20000,
+    Safe: 0.02000,
     Keter: 0.00500,
     Euclid: 0.01000,
   }[scp.cls] || 0.001;
@@ -1546,12 +1549,17 @@ function beginResearch(id) {
   const scp = G.scps[id];
   if (scp.researching||scp.research>=100||scp.breach||scp.roaming||G.chaosRaid?.active) return;
   if (!hasResearchers()) { insufficientPersonnel('Scientific Department', 'No research can begin until the Scientific Department has at least one researcher.'); return; }
-  const c = resInitCost(scp.cls);
-  if (G.budget < c) { notify('Insufficient Funds', `Research on ${id} needs ${fmt$(c)}`, 'breach'); return; }
-  G.budget -= c;
+  if (!scp.researchPaid) {
+    const c = resInitCost(scp.cls);
+    if (G.budget < c) { notify('Insufficient Funds', `Research on ${id} needs ${fmt$(c)}`, 'breach'); return; }
+    G.budget -= c;
+    scp.researchInitCost = c;
+    scp.researchPaid = true;
+    addLog(`Research initiated on ${id}. Initial cost: ${fmt$(c)}`, 'info');
+  } else {
+    addLog(`Research on ${id} resumed.`, 'info');
+  }
   scp.researching = true;
-  scp.researchInitCost = c;
-  addLog(`Research initiated on ${id}. Initial cost: ${fmt$(c)}`, 'info');
   renderAll();
 }
 
@@ -1590,7 +1598,7 @@ function tickResearch() {
     }
     scp.research = Math.min(100, scp.research+prog);
     if (scp.research>=100) {
-      scp.research = 100; scp.researching = false;
+      scp.research = 100; scp.researching = false; scp.researchPaid = false;
       G.totalResearch++;
       const fund = researchFunding(scp.cls, scp.researchInitCost);
       G.researchFundsEarned = (G.researchFundsEarned || 0) + fund;
@@ -1622,7 +1630,7 @@ function addSCP() {
     return;
   }
   G.scpQueue.shift();
-  G.scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+  G.scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   G.nextScpDay = G.day + 40;
   addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
   notify(`📦 ANOMALY TRANSFERRED`,
@@ -1659,7 +1667,13 @@ function tick() {
 
   if (G.hour >= 24) {
     G.hour = 0; G.day++;
-    G.budget -= dailyCost();
+    const nonPersonnelCost = dailySCP() + dailyResearch() + dailyPower();
+    G.budget -= nonPersonnelCost;
+    if (G.day % 7 === 0) {
+      const wages = weeklyPersonnel();
+      G.budget -= wages;
+      addLog(`WEEKLY PAYROLL: ${fmt$(wages)} disbursed to all departments.`, 'info');
+    }
     if (!G.chaosRaid?.active) tickResearch();
     suspendResearchIfNoScientists();
     G.performance = Math.min(100, G.performance + 1);
@@ -1733,19 +1747,20 @@ function firePersonnel(dk, ri) {
 // RENDERING
 // ══════════════════════════════════════════════════════
 function renderPersonnel() {
-  let html='', grandCost=0;
+  let html='', grandWeekly=0;
   for (const [dk, def] of Object.entries(DEPT_DEFS)) {
     const dept = G.depts[dk];
-    const dCost = dept.roles.reduce((s,r)=>s+r.count*r.cost,0);
-    grandCost += dCost;
+    const wCost = dept.roles.reduce((s,r)=>s+r.count*r.cost*7,0) * BALANCE.personnelDaily;
+    grandWeekly += wCost;
     html+=`<div class="dept">
-      <div class="dept-hd" style="color:${def.col}">${def.label}<span style="color:var(--dim)">${fmt$(dCost)}/day</span></div>`;
+      <div class="dept-hd" style="color:${def.col}">${def.label}<span style="color:var(--dim)">${fmt$(wCost)}/week</span></div>`;
     dept.roles.forEach((r,i)=>{
       const hCost = r.key?r.cost*30:r.cost*15;
+      const wagePerHead = Math.round(r.cost * 7 * BALANCE.personnelDaily);
       html+=`<div class="prow">
         <div class="pinfo">
           <div class="prole">${r.role}${r.key?'<span class="key-tag">KEY</span>':''}</div>
-          <div class="plvl">${r.lvl} · ${fmt$(r.cost)}/day · Hire: ${fmt$(hCost)}</div>
+          <div class="plvl">${r.lvl} · ${fmt$(wagePerHead)}/week · Hire: ${fmt$(hCost)}</div>
           ${r.totalKia?`<div class="pkia">☠ ${r.totalKia} KIA total</div>`:''}
         </div>
         <span class="pcount">${r.count}</span>
@@ -1756,7 +1771,7 @@ function renderPersonnel() {
     html+=`</div>`;
   }
   document.getElementById('persContent').innerHTML = html;
-  document.getElementById('salaryTot').textContent = fmt$(grandCost)+'/day';
+  document.getElementById('salaryTot').textContent = fmt$(grandWeekly)+'/week';
 }
 
 function renderSCPs() {
@@ -1773,6 +1788,7 @@ function renderSCPs() {
     const barCol = pct<4?'var(--green3)':pct<12?'var(--orange3)':'var(--red2)';
     const barW = Math.min(100, pct*5);
     const iCost = resInitCost(scp.cls);
+    const dailyR = scp.cls==='Keter'?2600:scp.cls==='Euclid'?1200:500;
     const cardClass = scp.breach ? ' breaching' : scp.roaming ? ' roaming' : '';
     const statusTag = scp.breach
       ? '<span class="breach-tag">⚠ BREACH</span>'
@@ -1809,7 +1825,7 @@ function renderSCPs() {
             <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
             <div class="recontain-sub">${scp.roaming?'Personnel escorting anomaly back to containment chamber.':'Containment team en route. Active breach status remains until complete.'}</div>
           </div>`:''}
-        ${!scp.breach&&!scp.roaming&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iCost||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>🔬 Research (${fmt$(iCost)})</button>`:''}
+        ${!scp.breach&&!scp.roaming&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iCost)||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`🔬 Research (${fmt$(iCost)})`}</button>`:''}
         ${scp.researching&&!scp.breach&&!scp.roaming?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
         ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">${scp.cls==='Safe'?'✓ Safe-class reward secured':'✓ Breach risk reduced 60%'}</span>`:''}
       </div>
@@ -1835,11 +1851,11 @@ function renderFinance() {
     </div>
     <div class="fsec">
       <div class="fhd">Daily Expenditures</div>
-      <div class="frow"><span class="fl">Personnel Salaries</span><span class="fv exp">${fmt$(pD)}</span></div>
-      <div class="frow"><span class="fl">SCP Containment</span><span class="fv exp">${fmt$(sD)}</span></div>
-      <div class="frow"><span class="fl">Research Operations</span><span class="fv exp">${fmt$(rD)}</span></div>
-      <div class="frow"><span class="fl">Power Systems</span><span class="fv exp">${fmt$(dailyPower())}</span></div>
-      <div class="ftotal"><span>Total Daily</span><span class="fv exp">${fmt$(tD)}</span></div>
+      <div class="frow"><span class="fl">Personnel Wages <span style="font-size:9px;color:var(--dim3)">(weekly, next in ${7 - ((G.day-1) % 7)}d)</span></span><span class="fv exp">${fmt$(weeklyPersonnel())}/wk</span></div>
+      <div class="frow"><span class="fl">SCP Containment</span><span class="fv exp">${fmt$(sD)}/day</span></div>
+      <div class="frow"><span class="fl">Research Operations</span><span class="fv exp">${fmt$(rD)}/day</span></div>
+      <div class="frow"><span class="fl">Power Systems</span><span class="fv exp">${fmt$(dailyPower())}/day</span></div>
+      <div class="ftotal"><span>Avg. Daily Burn</span><span class="fv exp">${fmt$(tD)}</span></div>
     </div>
     <div class="fsec">
       <div class="fhd">O5 Council Grant</div>
@@ -1867,6 +1883,7 @@ function renderResearch() {
   for (const scp of scps) {
     const iC = resInitCost(scp.cls);
     const dC = scp.cls==='Keter'?10000:scp.cls==='Euclid'?5000:2000;
+    const dailyR = scp.cls==='Keter'?2600:scp.cls==='Euclid'?1200:500;
     const sta = scp.research>=100?'done':scp.researching?'active':'idle';
     const staL = scp.research>=100?'COMPLETE':scp.researching?'ACTIVE':'IDLE';
     html+=`<div class="ritem">
@@ -1883,7 +1900,7 @@ function renderResearch() {
       </div>
       ${scp.research<100?`<div style="margin-top:5px">
         ${!scp.researching
-          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${G.budget<iC||scp.breach||scp.roaming||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>Begin (${fmt$(iC)})</button>${scp.roaming?'<span style="font-size:9px;color:var(--blue3);margin-left:6px">Return anomaly to chamber first</span>':''}`
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iC)||scp.breach||scp.roaming||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`Begin (${fmt$(iC)})`}</button>${scp.roaming?'<span style="font-size:9px;color:var(--blue3);margin-left:6px">Return anomaly to chamber first</span>':''}`
           :`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>Suspend</button>`}
       </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">${scp.cls==='Safe'?'✓ Reward secured':'✓ Breach risk reduced 60%'}</div>`}
     </div>`;
