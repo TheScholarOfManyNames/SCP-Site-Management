@@ -885,6 +885,7 @@ function initState(siteNum) {
     log:[], paused:false, over:false, speed:1,
     containmentCollapseActive:false,
     chaosRaid:null,
+    dailyResearchCasualties:0,  // ← CHANGE 1: initialized here
   };
 }
 
@@ -1574,9 +1575,14 @@ function tickResearch() {
     if (scp.risk>0 && Math.random()<accidentChance) {
       const casualties = scp.cls==='Keter' ? 2 : scp.cls==='Euclid' ? 1 + (Math.random()<0.35 ? 1 : 0) : 1;
       for (let i = 0; i < casualties; i++) causeCasualty('research');
-      if (scp.cls==='Keter') {
+      G.dailyResearchCasualties += casualties;  // ← CHANGE 2: track daily casualties
+
+      if (scp.cls==='Keter' || G.dailyResearchCasualties >= 7) {
         scp.researching = false;
-        addLog(`Research on ${id} HALTED — severe fatality event. Protocol suspended.`, 'dead');
+        const reason = G.dailyResearchCasualties >= 7
+          ? `critical casualty threshold reached (${G.dailyResearchCasualties} today)`
+          : 'severe fatality event';
+        addLog(`Research on ${id} HALTED — ${reason}. Protocol suspended.`, 'dead');
         notify('⚠ Research Suspended', `Fatal incident during ${id} research.`, 'dead', 8000);
         continue;
       }
@@ -1659,6 +1665,7 @@ function tick() {
       G.budget -= wages;
       addLog(`WEEKLY PAYROLL: ${fmt$(wages)} disbursed to all departments.`, 'info');
     }
+    G.dailyResearchCasualties = 0;  // ← CHANGE 3: reset at the start of each new day
     if (!G.chaosRaid?.active) tickResearch();
     suspendResearchIfNoScientists();
     G.performance = Math.min(100, G.performance + 1);
