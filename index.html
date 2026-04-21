@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SCP Foundation — Site Management</title>
+<link rel="icon" type="image/png" href="Assets/logo.png">
+<link rel="apple-touch-icon" href="Assets/logo.png">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090e;--panel:#0f1018;--panel2:#14151e;
+  --b1:#1e1f2a;--b2:#272836;--b3:#353645;
+  --red:#c00000;--red2:#e03838;--red3:#ff6060;
+  --orange:#c06800;--orange2:#e09000;--orange3:#ffb030;
+  --green:#0a7038;--green2:#0e9448;--green3:#2dda72;
+  --blue:#1a4a7a;--blue2:#2266aa;--blue3:#55bbff;
+  --purple:#4a2a7a;--purple2:#6633aa;--purple3:#bb77ff;
+  --txt:#9a9ab0;--txt2:#c0c0cc;--txt3:#e0e0ec;--txt4:#ffffff;
+  --dim:#42425a;--dim2:#58586e;--dim3:#78788e;
+  --safe:#0b7a40;--euclid:#b87000;--keter:#a80000;
+  --mono:'Courier New',Courier,monospace;
+}
+body{
+  background:var(--bg);color:var(--txt);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:13.5px;height:100vh;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-corner{background:#080808}
+::-webkit-scrollbar-track{background:#0b0b0b;border:1px solid #1a1a1a}
+::-webkit-scrollbar-thumb{background:#4a4a4a;border:2px solid #0b0b0b;border-radius:999px}
+::-webkit-scrollbar-thumb:hover{background:#666}
+*{scrollbar-color:#4a4a4a #0b0b0b;scrollbar-width:thin}
+
+/* ── SCANLINE overlay ── */
+body::after{
+  content:'';position:fixed;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.018) 3px,rgba(0,0,0,.018) 6px);
+  pointer-events:none;z-index:9999;
+}
+
+/* ── MODAL ── */
+#startModal{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.97);
+  display:flex;align-items:center;justify-content:center;
+  z-index:5000;
+}
+.m-box{
+  max-width:540px;width:92%;
+  border:1px solid var(--red);
+  background:var(--panel);padding:28px 32px;text-align:center;
+}
+.m-logo{margin:0 auto 16px;display:block;object-fit:contain}
+.m-title{color:var(--txt4);font-size:22px;letter-spacing:5px;margin-bottom:4px;font-family:var(--mono)}
+.m-sub{color:var(--dim3);font-size:10.5px;letter-spacing:2px;margin-bottom:18px;font-family:var(--mono)}
+.m-brief{
+  text-align:left;font-size:12px;line-height:1.85;
+  border:1px solid var(--b2);padding:13px 16px;
+  background:#06060c;margin-bottom:16px;color:var(--txt2);
+  border-radius:2px;
+}
+.m-brief b{color:var(--red2)}
+.m-lbl{color:var(--dim3);font-size:10.5px;letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
+.site-grid{
+  display:grid;grid-template-columns:repeat(13,1fr);
+  gap:3px;margin-bottom:16px;
+}
+.sb{
+  background:#0b0b12;border:1px solid var(--b1);
+  color:var(--dim3);font-family:var(--mono);font-size:10.5px;
+  padding:5px 2px;cursor:pointer;transition:all .12s;
+}
+.sb:hover{background:#1a0000;border-color:var(--red);color:var(--txt3)}
+.sb.sel{background:var(--red);border-color:var(--red2);color:#fff;font-weight:bold}
+#startBtn{
+  width:100%;background:var(--red);border:none;color:#fff;
+  font-family:var(--mono);font-size:11px;padding:12px;
+  cursor:pointer;letter-spacing:3px;text-transform:uppercase;
+  transition:background .2s;
+}
+#startBtn:hover{background:var(--red2)}
+#startBtn:disabled{background:#1a1a22;color:var(--dim);cursor:not-allowed}
+
+/* ── GAME OVER ── */
+#gameOver{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.96);z-index:4999;
+  align-items:center;justify-content:center;flex-direction:column;gap:14px;
+}
+#gameOver.show{display:flex}
+.go-title{color:var(--red);font-size:28px;letter-spacing:6px}
+.go-msg{color:var(--txt2);font-size:12px;max-width:420px;text-align:center;line-height:1.7}
+.go-stats{color:var(--txt3);font-size:12px;text-align:center;line-height:2;
+  border:1px solid var(--b2);padding:12px 24px;background:var(--panel)}
+.go-restart{
+  background:var(--red);border:none;color:#fff;
+  font-family:inherit;font-size:11px;padding:10px 28px;
+  cursor:pointer;letter-spacing:2px;
+}
+
+/* ── ALERT BANNER ── */
+#alertBanner{
+  display:none;flex-shrink:0;
+  background:var(--red);color:#fff;text-align:center;
+  padding:5px;font-size:10px;letter-spacing:3px;
+  animation:blink .9s infinite;
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.65}}
+
+/* ── HEADER ── */
+#header{
+  flex-shrink:0;background:#0b0b0b;
+  border-bottom:1px solid var(--red);
+  padding:6px 12px;display:flex;
+  align-items:center;justify-content:space-between;gap:8px;
+}
+.h-brand{display:flex;align-items:center;gap:9px}
+.h-logo{display:block;object-fit:contain}
+.h-site{color:var(--txt4);font-size:18px;font-weight:700;letter-spacing:3px;line-height:1;font-family:var(--mono)}
+.h-sitesub{color:var(--dim3);font-size:9px;letter-spacing:2px;font-family:var(--mono)}
+.h-stats{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.hst{text-align:center}
+.hst-lbl{color:var(--dim3);font-size:9.5px;letter-spacing:.5px;text-transform:uppercase;font-weight:600}
+.hst-val{color:var(--txt3);font-size:15px;font-weight:700;line-height:1.3;font-family:var(--mono)}
+.hst-val.red{color:var(--red2)}
+.hst-val.yellow{color:var(--orange3)}
+.hst-val.green{color:var(--green3)}
+.perf-wrap{display:flex;align-items:center;gap:5px;font-size:11px}
+.perf-track{width:72px;height:6px;background:var(--b1);border-radius:3px;overflow:hidden}
+.perf-fill{height:100%;border-radius:3px;transition:width .4s,background .4s}
+.spd-btns{display:flex;gap:3px}
+.spd-btn{
+  background:var(--panel);border:1px solid var(--b2);
+  color:var(--dim3);font-family:var(--mono);font-size:9.5px;
+  padding:3px 8px;cursor:pointer;
+}
+.spd-btn.on{border-color:var(--orange);color:var(--orange)}
+
+/* ── MAIN LAYOUT ── */
+#main{
+  flex:1;display:grid;
+  grid-template-columns:265px 1fr 285px;
+  overflow:hidden;gap:1px;background:var(--b1);
+  min-height:0;
+}
+.panel{background:var(--panel);overflow-y:auto;padding:9px 10px;min-height:0}
+.ptitle{
+  color:var(--orange2);font-size:10.5px;letter-spacing:1.5px;
+  text-transform:uppercase;border-bottom:1px solid var(--b2);
+  padding-bottom:6px;margin-bottom:9px;font-weight:700;
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);
+}
+
+/* ── LEFT: PERSONNEL ── */
+.dept{margin-bottom:10px}
+.dept-hd{
+  font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  padding:3px 0 5px;border-bottom:1px solid var(--b1);margin-bottom:4px;
+  display:flex;justify-content:space-between;font-weight:700;
+}
+.prow{
+  display:flex;align-items:center;
+  padding:4px 0;border-bottom:1px solid #0f0f16;
+}
+.pinfo{flex:1;min-width:0}
+.prole{color:var(--txt2);font-size:12px;font-weight:500}
+.plvl{color:var(--dim3);font-size:10px;margin-top:1px;font-family:var(--mono)}
+.pkia{color:var(--red2);font-size:10px;font-weight:600}
+.pcount{color:var(--orange3);font-size:14px;font-weight:700;min-width:22px;text-align:center;font-family:var(--mono)}
+.pbtn{
+  background:none;border:1px solid;
+  font-family:inherit;font-size:11px;padding:3px 7px;cursor:pointer;
+  line-height:1;
+}
+.pbtn.hire{border-color:var(--green);color:var(--green)}
+.pbtn.hire:hover{background:var(--green);color:#000}
+.pbtn.hire:disabled{opacity:.25;cursor:not-allowed}
+.pbtn.fire{border-color:var(--b3);color:var(--dim3);margin-right:2px}
+.pbtn.fire:hover{border-color:var(--red);color:var(--red)}
+.pbtn.fire:disabled{opacity:.25;cursor:not-allowed}
+.key-tag{
+  font-size:8px;border:1px solid #443322;
+  color:#aa7744;padding:0 4px;margin-left:4px;border-radius:2px;font-family:var(--mono);
+}
+
+/* ── CENTER: SCPs ── */
+.scard{
+  border:1px solid var(--b2);margin-bottom:7px;
+  background:var(--panel2);padding:8px;
+  transition:border-color .3s;
+}
+.scard.breaching{
+  border-color:var(--red);
+  animation:spulse 1.3s infinite;
+}
+@keyframes spulse{
+  0%,100%{box-shadow:0 0 6px rgba(180,0,0,.25)}
+  50%{box-shadow:0 0 18px rgba(200,0,0,.55)}
+}
+.scard.roaming{
+  border-color:var(--blue2);
+  animation:rpulse 2.2s infinite;
+}
+@keyframes rpulse{
+  0%,100%{box-shadow:0 0 5px rgba(0,80,160,.18)}
+  50%{box-shadow:0 0 14px rgba(0,120,220,.42)}
+}
+.sc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.sc-id{color:var(--txt4);font-size:14px;font-weight:700;font-family:var(--mono)}
+.sc-hd-r{display:flex;align-items:center;gap:6px}
+.cls-badge{font-size:9.5px;padding:2px 7px;font-weight:700;letter-spacing:.5px;font-family:var(--mono)}
+.cls-Safe{background:var(--safe);color:#ccffee}
+.cls-Euclid{background:var(--euclid);color:#fff3cc}
+.cls-Keter{background:var(--keter);color:#ffffff}
+.sc-name{font-size:11px;color:var(--dim3);margin-bottom:6px;font-style:italic}
+.sc-desc{font-size:11.5px;color:var(--txt);margin-bottom:6px;line-height:1.6}
+.sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:9.5px;margin-bottom:6px}
+.sg-l{color:var(--dim3);text-transform:uppercase;letter-spacing:.5px;font-size:9.5px;font-weight:600}
+.sg-v{color:var(--txt2);font-size:11px;font-family:var(--mono)}
+.risk-track{height:4px;background:var(--b1);border-radius:2px;margin:3px 0 2px;overflow:hidden}
+.risk-fill{height:100%;border-radius:2px;transition:width .5s,background .5s}
+.res-track{height:4px;background:var(--b1);border-radius:2px;margin:3px 0;overflow:hidden}
+.res-fill{height:100%;background:linear-gradient(90deg,#112244,#2255aa);transition:width 1s}
+.res-lbl{font-size:10px;color:var(--blue3);margin-bottom:6px}
+.sc-btns{display:flex;gap:5px;flex-wrap:wrap}
+.sc-btn{
+  background:var(--bg);border:1px solid var(--b2);
+  color:var(--txt2);font-family:inherit;font-size:11px;
+  padding:4px 9px;cursor:pointer;letter-spacing:.3px;text-transform:uppercase;font-weight:500;
+}
+.sc-btn:hover{border-color:var(--orange);color:var(--orange)}
+.sc-btn.danger{border-color:var(--red);color:var(--red)}
+.sc-btn.danger:hover{background:#0e0002}
+.sc-btn:disabled{opacity:.3;cursor:not-allowed}
+
+.recontain-wrap{
+  flex-basis:100%;
+  width:100%;
+  margin-top:2px;
+  padding:6px 7px;
+  border:1px solid var(--b2);
+  background:#0a0a12;
+}
+.recontain-lbl{
+  font-size:9.5px;
+  color:var(--orange3);
+  font-family:var(--mono);
+  letter-spacing:.8px;
+  margin-bottom:5px;
+  text-transform:uppercase;
+}
+.recontain-track{
+  height:6px;
+  background:var(--b1);
+  border-radius:999px;
+  overflow:hidden;
+}
+.recontain-fill{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,var(--orange),var(--red2));
+  border-radius:999px;
+  transition:width .18s linear;
+}
+.recontain-sub{
+  margin-top:4px;
+  font-size:9.5px;
+  color:var(--txt2);
+  font-family:var(--mono);
+}
+.breach-tag{color:var(--red2);font-size:10px;font-weight:700;animation:blink .8s infinite;font-family:var(--mono)}
+.contained-tag{color:var(--green3);font-size:10px;font-family:var(--mono)}
+.roaming-tag{color:var(--blue3);font-size:10px;font-weight:700;font-family:var(--mono)}
+
+/* ── RIGHT PANEL ── */
+.tabs{display:flex;gap:1px;margin-bottom:8px}
+.tab{
+  background:#0b0b14;border:1px solid var(--b1);
+  color:var(--dim3);font-family:var(--mono);font-size:9.5px;
+  padding:5px 11px;cursor:pointer;letter-spacing:1px;text-transform:uppercase;font-weight:600;
+}
+.tab.on{border-color:var(--orange);color:var(--orange2);background:rgba(180,80,0,.07)}
+.tcont{display:none}
+.tcont.on{display:block}
+
+/* Finance */
+.fsec{margin-bottom:11px}
+.fhd{
+  font-size:9.5px;color:var(--dim3);letter-spacing:1px;text-transform:uppercase;
+  border-bottom:1px solid var(--b1);padding-bottom:4px;margin-bottom:6px;font-weight:700;font-family:var(--mono);
+}
+.frow{
+  display:flex;justify-content:space-between;
+  font-size:11px;padding:2.5px 0;border-bottom:1px solid #0d0d16;
+}
+.fl{color:var(--txt)}
+.fv{font-weight:600;font-family:var(--mono)}
+.fv.exp{color:#ff6060}
+.fv.inc{color:var(--green3)}
+.fv.neu{color:var(--txt2)}
+.ftotal{
+  display:flex;justify-content:space-between;
+  font-size:11px;padding:5px 0;margin-top:1px;
+  border-top:1px solid var(--b2);
+}
+.gbar-track{height:5px;background:var(--b1);border-radius:3px;overflow:hidden;margin:6px 0}
+.gbar-fill{height:100%;background:var(--purple2);transition:width 1s}
+
+/* Research */
+.ritem{
+  border:1px solid var(--b1);background:#0b0c14;
+  padding:8px;margin-bottom:8px;
+}
+.ri-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ri-id{color:var(--txt2);font-size:11px;font-weight:700;font-family:var(--mono)}
+.ri-sta{font-size:9.5px;padding:1px 6px;border:1px solid;font-family:var(--mono)}
+.ri-sta.active{color:var(--blue3);border-color:var(--blue2)}
+.ri-sta.done{color:var(--green3);border-color:var(--green)}
+.ri-sta.idle{color:var(--dim3);border-color:var(--b2)}
+.ri-prog-track{height:5px;background:var(--b1);border-radius:3px;overflow:hidden;margin:6px 0}
+.ri-prog-fill{height:100%;background:linear-gradient(90deg,#113355,#2266bb);transition:width 1s}
+.ri-meta{display:flex;gap:10px;font-size:10px;color:var(--dim3)}
+.ri-meta span{color:var(--txt2);font-family:var(--mono)}
+
+/* ── LOG ── */
+#log{
+  flex-shrink:0;height:125px;background:#07070e;
+  border-top:1px solid var(--b1);padding:5px 10px;
+  overflow-y:auto;
+}
+.lrow{
+  font-size:10px;padding:1.5px 0;border-bottom:1px solid #0c0c16;
+  display:flex;gap:7px;
+}
+.lt{color:var(--dim);flex-shrink:0;min-width:70px;font-size:10px;font-family:var(--mono)}
+.lm{color:var(--txt);font-size:10.5px}
+.lrow.breach .lm{color:var(--red2)}
+.lrow.warn .lm{color:var(--orange3)}
+.lrow.ok .lm{color:var(--green3)}
+.lrow.info .lm{color:var(--blue3)}
+.lrow.o5 .lm{color:var(--purple3)}
+.lrow.dead .lm{color:var(--red3);font-weight:600}
+.lrow.newscp .lm{color:var(--orange2);font-weight:600}
+
+/* ── CI RAID OVERLAY ── */
+#raidOverlay{
+  display:none;position:fixed;inset:0;
+  background:rgba(0,0,0,.82);
+  z-index:6000;
+  align-items:center;justify-content:center;
+}
+#raidOverlay.show{display:flex}
+.ro-box{
+  max-width:460px;width:92%;
+  border:1px solid var(--red2);
+  background:#0b0005;
+  padding:26px 28px;
+  box-shadow:0 0 48px rgba(200,0,0,.35), 0 0 8px rgba(200,0,0,.2);
+  animation:roAppear .22s ease;
+}
+@keyframes roAppear{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.ro-title{
+  color:var(--red2);font-size:17px;font-weight:700;
+  letter-spacing:4px;font-family:var(--mono);margin-bottom:3px;
+  animation:blink 1s infinite;
+}
+.ro-sub{
+  color:var(--dim3);font-size:9px;letter-spacing:2px;
+  text-transform:uppercase;font-family:var(--mono);margin-bottom:14px;
+}
+.ro-body{
+  font-size:12px;color:var(--txt2);line-height:1.75;
+  border-left:2px solid var(--red);padding-left:12px;margin-bottom:14px;
+}
+.ro-stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;
+  font-size:11px;border:1px solid #1a0008;
+  background:#080003;padding:10px 12px;margin-bottom:16px;
+}
+.ro-sl{color:var(--dim3);font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;align-self:center}
+.ro-sv{color:var(--txt2);font-family:var(--mono);font-weight:700;font-size:12px}
+.ro-sv.red{color:var(--red2)}
+.ro-sv.orange{color:var(--orange3)}
+.ro-sv.green{color:var(--green3)}
+.ro-actions{display:flex;gap:8px;flex-direction:column}
+#roStopBtn{
+  background:var(--red);border:none;color:#fff;
+  font-family:var(--mono);font-size:11px;padding:11px;
+  cursor:pointer;letter-spacing:2px;text-transform:uppercase;
+  transition:background .2s;
+}
+#roStopBtn:hover{background:var(--red2)}
+#roStopBtn:disabled{background:#1a1a22;color:var(--dim);cursor:not-allowed}
+.ro-dismiss{
+  background:none;border:1px solid var(--b3);color:var(--dim3);
+  font-family:inherit;font-size:11px;padding:8px;cursor:pointer;
+  transition:all .15s;letter-spacing:.5px;
+}
+.ro-dismiss:hover{border-color:var(--txt);color:var(--txt2)}
+.ro-response-bar{
+  height:5px;background:var(--b1);border-radius:3px;overflow:hidden;margin:6px 0 2px;
+}
+.ro-response-fill{
+  height:100%;background:linear-gradient(90deg,var(--orange),var(--red2));
+  border-radius:3px;transition:width .5s linear;
+}
+
+/* ── RAID BADGE (reopen handle) ── */
+#raidBadge{
+  display:none;position:fixed;top:50%;right:0;
+  transform:translateY(-50%);
+  background:var(--red);color:#fff;
+  font-family:var(--mono);font-size:9px;letter-spacing:2px;
+  padding:10px 6px;cursor:pointer;z-index:5900;
+  writing-mode:vertical-rl;text-orientation:mixed;
+  border-left:2px solid var(--red2);
+  animation:blink .9s infinite;
+}
+#raidBadge.show{display:block}
+
+/* ── RAID TOP POP-UP ── */
+#raidTopBar{
+  display:none;position:fixed;top:8px;left:50%;
+  transform:translateX(-50%);
+  width:min(760px,calc(100vw - 16px));
+  z-index:6050;
+  background:linear-gradient(180deg,#140006,#090006);
+  border:1px solid var(--red2);
+  box-shadow:0 12px 30px rgba(0,0,0,.58), 0 0 18px rgba(200,0,0,.18);
+  padding:10px 12px;
+  gap:10px;align-items:center;justify-content:space-between;
+  cursor:pointer;
+}
+#raidTopBar.show{display:flex}
+.raidTopCopy{min-width:0;flex:1}
+.raidTopTitle{
+  color:var(--red2);font-size:12px;font-weight:700;
+  letter-spacing:2px;font-family:var(--mono);margin-bottom:2px;
+  text-transform:uppercase;
+}
+.raidTopSub{
+  color:var(--txt2);font-size:10px;line-height:1.35;
+  font-family:var(--mono);letter-spacing:.2px;
+}
+#raidTopStopBtn{
+  flex-shrink:0;background:var(--red);border:none;color:#fff;
+  font-family:var(--mono);font-size:10px;padding:10px 12px;
+  cursor:pointer;letter-spacing:1.5px;text-transform:uppercase;
+  border-radius:10px;min-width:170px;
+}
+#raidTopStopBtn:hover{background:var(--red2)}
+#raidTopStopBtn:disabled{background:#1a1a22;color:var(--dim);cursor:not-allowed}
+
+/* ── RAID TOP POP-UP (mobile) ── */
+body.mobile #raidTopBar{
+  top:8px;width:calc(100vw - 16px);
+  padding:10px 10px;
+}
+body.mobile #raidTopStopBtn{min-width:132px;padding:10px 8px;font-size:9px}
+
+#notifs{
+  position:fixed;bottom:134px;right:10px;
+  z-index:800;display:flex;flex-direction:column;gap:5px;max-width:280px;
+}
+.notif{
+  background:var(--panel2);border:1px solid var(--b2);
+  padding:10px 13px;
+  animation:nslide .25s ease;
+}
+.notif.breach{border-color:var(--red)}
+.notif.o5{border-color:var(--purple2)}
+.notif.newscp{border-color:var(--orange2)}
+.notif.dead{border-color:var(--red2)}
+.notif.ok{border-color:var(--green)}
+.nt{font-size:11.5px;font-weight:700;margin-bottom:3px}
+.notif.breach .nt{color:var(--red2)}
+.notif.o5 .nt{color:var(--purple3)}
+.notif.newscp .nt{color:var(--orange3)}
+.notif.dead .nt{color:var(--red3)}
+.notif.ok .nt{color:var(--green3)}
+.nb{font-size:11px;color:var(--txt2);line-height:1.5}
+@keyframes nslide{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+.no-scp{color:var(--dim);font-size:10px;text-align:center;padding:24px;font-style:italic}
+
+/* budget color states */
+.budget-crit{color:var(--red2) !important}
+.budget-warn{color:var(--orange3) !important}
+.budget-ok{color:var(--green3) !important}
+
+/* ── MOBILE / TOUCH LAYOUT ── */
+#mobileNav{display:none}
+
+body.mobile{
+  overflow:auto;height:auto;min-height:100vh;
+}
+body.mobile::after{position:fixed}
+body.mobile #startModal{
+  align-items:flex-start;justify-content:flex-start;
+  padding:10px 10px calc(128px + env(safe-area-inset-bottom));
+  overflow:auto;
+}
+body.mobile #header{
+  position:sticky;top:0;z-index:1200;
+  flex-wrap:wrap;align-items:flex-start;
+  padding:8px 10px;gap:8px;
+}
+body.mobile .h-brand{width:100%}
+body.mobile .h-stats{
+  width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+}
+body.mobile .hst{
+  background:#0a0a0a;border:1px solid #1b1b1b;border-radius:12px;
+  padding:6px 5px;
+}
+body.mobile .hst-lbl{font-size:8px}
+body.mobile .hst-val{font-size:12px;line-height:1.2}
+body.mobile .perf-wrap{width:100%}
+body.mobile .perf-track{flex:1;width:auto}
+body.mobile .spd-btns{
+  display:grid;grid-template-columns:repeat(5,1fr);gap:4px;width:100%;
+}
+body.mobile .spd-btn{padding:8px 0;font-size:10px}
+body.mobile #main{
+  display:block;gap:0;background:transparent;padding:8px 8px 70px;
+}
+body.mobile .panel{
+  display:none;overflow:visible;min-height:auto;
+  border:1px solid #1d1d1d;border-radius:16px;margin-bottom:10px;
+}
+body.mobile .panel.active{display:block}
+body.mobile .ptitle{
+  position:sticky;top:0;z-index:2;background:var(--panel);
+  padding:8px 10px;margin-bottom:8px;
+}
+body.mobile .tabs{
+  position:sticky;top:0;z-index:3;background:var(--panel);
+  padding-top:2px;margin-bottom:8px;
+}
+body.mobile .tab{padding:10px 8px;flex:1}
+body.mobile .scard{padding:10px}
+body.mobile .sc-grid{grid-template-columns:1fr 1fr;gap:4px 8px}
+body.mobile .sc-btns{display:grid;grid-template-columns:1fr;gap:6px}
+body.mobile .sc-btn,
+body.mobile .pbtn,
+body.mobile .go-restart,
+body.mobile #startBtn,
+body.mobile .sb,
+body.mobile .tab,
+body.mobile .spd-btn{min-height:38px}
+body.mobile .prow{gap:6px;flex-wrap:wrap;align-items:flex-start}
+body.mobile .pcount{min-width:26px}
+body.mobile .pbtn{padding:8px 10px}
+body.mobile .site-grid{grid-template-columns:repeat(5,1fr);gap:5px}
+body.mobile .sb{padding:10px 0;font-size:11px}
+body.mobile .m-box{
+  width:96%;padding:20px 14px calc(112px + env(safe-area-inset-bottom));
+  max-height:calc(100dvh - 20px);overflow:auto;
+}
+body.mobile .m-title{font-size:20px;letter-spacing:3px}
+body.mobile .m-sub{font-size:9px;letter-spacing:1px}
+body.mobile .m-brief{font-size:10px;line-height:1.65}
+body.mobile #startBtn{margin-bottom:calc(10px + env(safe-area-inset-bottom))}
+body.mobile #log{
+  position:fixed;left:8px;right:8px;bottom:68px;z-index:8200;
+  height:34vh;max-height:34vh;border:1px solid #2a2a2a;border-radius:16px;
+  background:#050505;display:none;box-shadow:0 12px 30px rgba(0,0,0,.6);
+}
+body.mobile #log.mobile-open{display:block}
+body.mobile #notifs{
+  right:8px;left:8px;
+  top:8px;bottom:auto;
+  max-width:none;pointer-events:none;
+  flex-direction:column-reverse;
+  z-index:9100;
+}
+body.mobile .notif{pointer-events:auto}
+body.mobile #mobileNav{
+  display:flex;position:fixed;left:8px;right:8px;bottom:8px;z-index:8500;
+  background:#0b0b0b;border:1px solid #2a2a2a;border-radius:18px;
+  padding:6px;gap:6px;box-shadow:0 14px 30px rgba(0,0,0,.55);
+}
+body.mobile #mobileNav button{
+  flex:1;background:#101010;border:1px solid #2a2a2a;color:var(--txt3);
+  font-family:inherit;font-size:10px;padding:10px 6px;border-radius:12px;
+}
+body.mobile #mobileNav button.on{
+  border-color:var(--orange);color:var(--orange2);background:rgba(180,80,0,.08)
+}
+body.mobile #main{padding-bottom:86px}
+body.mobile .no-scp{padding:18px 10px}
+body.mobile .lrow{font-size:8px}
+body.mobile .lt{min-width:54px}
+
+@media (max-width: 860px){
+  body{overflow:auto;height:auto;min-height:100vh}
+  #main{grid-template-columns:1fr}
+  #header{flex-wrap:wrap}
+  .h-stats{gap:8px}
+  .panel{min-height:auto}
+}
+
+@media (max-width: 520px){
+  body.mobile .site-grid{grid-template-columns:repeat(4,1fr)}
+  body.mobile .h-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.mobile .m-box{padding:16px 12px calc(112px + env(safe-area-inset-bottom)); max-height:calc(100dvh - 20px); overflow:auto;}
+  body.mobile .m-title{font-size:18px;letter-spacing:2px}
+}
+
+</style>
+</head>
+<body>
+
+<!-- SITE SELECTION MODAL -->
+<div id="startModal">
+<div class="m-box">
+  <img class="m-logo" src="Assets/logo.png" alt="SCP Foundation logo" width="60" height="60">
+  <div class="m-title">SCP FOUNDATION</div>
+  <div class="m-sub">SITE DIRECTOR MANAGEMENT INTERFACE · CLEARANCE LEVEL 5</div>
+  <div class="m-brief">
+    You have been appointed <b>Site Director</b>. Your facility contains anomalous entities, conducts
+    research, and manages Foundation personnel.<br><br>
+    The <b>O5 Council</b> monitors your performance and adjusts budget disbursements accordingly.
+    Containment breaches cost lives and funding. Failure to maintain solvency will result in
+    <b>site decommission</b>.<br><br>
+    <b>NOTICE:</b> Personnel may be killed in service. Replace casualties promptly. Research reduces
+    long-term breach risk but carries its own hazards.
+  </div>
+  <div class="m-lbl">Select Your Site Designation:</div>
+  <div class="site-grid" id="siteGrid"></div>
+  <button id="startBtn" disabled onclick="startGame()">▶ ASSUME COMMAND</button>
+</div>
+</div>
+
+<!-- CI RAID OVERLAY -->
+<div id="raidOverlay">
+  <div class="ro-box">
+    <div class="ro-title" id="roTitle">⚠ CHAOS INSURGENCY RAID</div>
+    <div class="ro-sub" id="roSub">Site Perimeter Compromised — All Personnel to Stations</div>
+    <div class="ro-body" id="roBody">
+      Chaos Insurgency operatives have breached the site perimeter. SCP breaches will continue
+      and personnel casualties will mount until the raid is neutralized. Issue an emergency response
+      to deploy elimination teams.
+    </div>
+    <div class="ro-stats" id="roStats"></div>
+    <div class="ro-actions">
+      <button id="roStopBtn" onclick="stopChaosRaid()"></button>
+      <button class="ro-dismiss" onclick="dismissRaidOverlay()">✕ Acknowledge and Ignore</button>
+    </div>
+  </div>
+</div>
+
+<!-- RAID ACTIVE BADGE -->
+<div id="raidBadge" onclick="showRaidOverlay()">⚠ RAID ACTIVE</div>
+
+<!-- RAID TOP POP-UP -->
+<div id="raidTopBar" aria-live="polite" role="button" onclick="showRaidOverlay()">
+  <div class="raidTopCopy">
+    <div class="raidTopTitle" id="raidTopTitle">⚠ RAID ALERT</div>
+    <div class="raidTopSub" id="raidTopSub">Opening incident details…</div>
+  </div>
+  <button id="raidTopStopBtn" type="button" onclick="event.stopPropagation(); stopChaosRaid()"></button>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOver">
+  <div class="go-title">SITE DECOMMISSIONED</div>
+  <div class="go-msg" id="goMsg"></div>
+  <div class="go-stats" id="goStats"></div>
+  <button class="go-restart" onclick="location.reload()">↺ NEW ASSIGNMENT</button>
+</div>
+
+<!-- BREACH ALERT -->
+<div id="alertBanner">⚠ CONTAINMENT BREACH IN PROGRESS — ALL PERSONNEL TO STATIONS ⚠</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="h-brand">
+    <img class="h-logo" src="Assets/logo.png" alt="SCP Foundation logo" width="32" height="32">
+    <div>
+      <div class="h-site" id="hSite">SITE-██</div>
+      <div class="h-sitesub">SCP FOUNDATION · SECURE · CONTAIN · PROTECT</div>
+    </div>
+  </div>
+  <div class="h-stats">
+    <div class="hst"><div class="hst-lbl">Day</div><div class="hst-val" id="hDay">1</div></div>
+    <div class="hst"><div class="hst-lbl">Time</div><div class="hst-val" id="hTime">00:00</div></div>
+    <div class="hst"><div class="hst-lbl">Budget</div><div class="hst-val green" id="hBudget">$2,500,000</div></div>
+    <div class="hst"><div class="hst-lbl">Daily Cost</div><div class="hst-val red" id="hCost">$50,980</div></div>
+    <div class="hst"><div class="hst-lbl">Personnel</div><div class="hst-val" id="hPers">47</div></div>
+    <div class="hst"><div class="hst-lbl">SCPs</div><div class="hst-val" id="hScps">3</div></div>
+    <div class="hst">
+      <div class="hst-lbl">Performance</div>
+      <div class="perf-wrap">
+        <div class="perf-track"><div class="perf-fill" id="perfFill"></div></div>
+        <span id="perfVal" style="font-size:10px;color:var(--txt2)">75%</span>
+      </div>
+    </div>
+    <div class="hst">
+      <div class="hst-lbl">Speed</div>
+      <div class="spd-btns">
+        <button class="spd-btn" id="spd0" onclick="setSpeed(0)">⏸</button>
+        <button class="spd-btn on" id="spd1" onclick="setSpeed(1)">1×</button>
+        <button class="spd-btn" id="spd3" onclick="setSpeed(3)">3×</button>
+        <button class="spd-btn" id="spd5" onclick="setSpeed(5)">5×</button>
+        <button class="spd-btn" id="spd10" onclick="setSpeed(10)">10×</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div class="panel" id="leftPanel">
+    <div class="ptitle">Personnel Management<span id="salaryTot" style="color:var(--dim3)"></span></div>
+    <div id="persContent"></div>
+  </div>
+  <div class="panel" id="centerPanel">
+    <div class="ptitle">Anomaly Containment Status<span id="breachCount" style="color:var(--red2)"></span></div>
+    <div id="scpContent"></div>
+  </div>
+  <div class="panel" id="rightPanel">
+    <div class="tabs">
+      <button class="tab on" onclick="setTab('finance')">Finance</button>
+      <button class="tab" onclick="setTab('research')">Research</button>
+      <button class="tab" onclick="setTab('reports')">Reports</button>
+    </div>
+    <div class="tcont on" id="tc-finance"></div>
+    <div class="tcont" id="tc-research"></div>
+    <div class="tcont" id="tc-reports"></div>
+  </div>
+</div>
+
+
+<div id="mobileNav" aria-label="Mobile navigation">
+  <button type="button" data-panel="leftPanel" onclick="setMobileSection('leftPanel')">Personnel</button>
+  <button type="button" data-panel="centerPanel" onclick="setMobileSection('centerPanel')">SCPs</button>
+  <button type="button" data-panel="rightPanel" onclick="setMobileSection('rightPanel')">Ops</button>
+  <button type="button" data-panel="log" onclick="setMobileSection('log')">Log</button>
+</div>
+
+<!-- LOG -->
+<div id="log"></div>
+
+<!-- NOTIFICATIONS -->
+<div id="notifs"></div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════
+const SCP_DB = {
+  "SCP-173":{name:"The Sculpture",cls:"Euclid",
+    desc:"Animate concrete entity. Immobile while directly observed.",
+    bBase:.0038,casualty:.35,cCost:4500,rCost:45000,risk:.12},
+  "SCP-096":{name:"The Shy Guy",cls:"Euclid",
+    desc:"Docile until its face is viewed. Extreme aggression during SCP-096-1 events.",
+    bBase:.003,casualty:.45,cCost:3500,rCost:42000,risk:.1},
+  "SCP-131":{name:"Eye Pods (A & B)",cls:"Safe",
+    desc:"Pair of small cyclopic entities. Docile. Assists staff in monitoring hazards.",
+    bBase:.0004,casualty:0,cCost:500,rCost:3000,risk:0},
+  "SCP-049":{name:"The Plague Doctor",cls:"Euclid",
+    desc:"Robed humanoid claiming to cure 'the Pestilence'. Touch causes immediate death.",
+    bBase:.0042,casualty:.5,cCost:4200,rCost:55000,risk:.14},
+  "SCP-999":{name:"The Tickle Monster",cls:"Safe",
+    desc:"Amorphous orange mass. Highly docile. Improves morale in nearby personnel.",
+    bBase:.0002,casualty:0,cCost:400,rCost:3500,risk:0},
+  "SCP-106":{name:"The Old Man",cls:"Keter",
+    desc:"Elderly humanoid capable of phasing through solid matter. Extreme aggression.",
+    bBase:.012,casualty:.72,cCost:12000,rCost:165000,risk:.3},
+  "SCP-682":{name:"Hard-to-Destroy Reptile",cls:"Keter",
+    desc:"Massive reptilian entity. Extreme hostility to all life. Near-indestructible.",
+    bBase:.015,casualty:.85,cCost:20000,rCost:290000,risk:.4},
+  "SCP-914":{name:"The Clockworks",cls:"Safe",
+    desc:"Large mechanical device. Refines or alters objects placed in the intake booth.",
+    bBase:.0001,casualty:0,cCost:600,rCost:9000,risk:0},
+  "SCP-079":{name:"Old AI",cls:"Euclid",
+    desc:"Primitive AI on isolated hardware. Capable of manipulating facility systems.",
+    bBase:.005,casualty:.22,cCost:5500,rCost:62000,risk:.1},
+  "SCP-076":{name:"Able",cls:"Keter",
+    desc:"Humanoid entity of anomalous origin. Superhuman combat ability. Hostile.",
+    bBase:.01,casualty:.78,cCost:10000,rCost:135000,risk:.25},
+  "SCP-035":{name:"Possessive Mask",cls:"Keter",
+    desc:"Theatrical mask that possesses hosts through direct contact. Hosts deteriorate.",
+    bBase:.008,casualty:.6,cCost:8000,rCost:95000,risk:.2},
+  "SCP-507":{name:"Reluctant Dimension Hopper",cls:"Euclid",
+    desc:"Cooperative humanoid that shifts involuntarily between dimensions.",
+    bBase:.0022,casualty:.05,cCost:2000,rCost:22000,risk:.02},
+};
+
+const SCP_QUEUE_DEFS = [
+  "SCP-049","SCP-999","SCP-106","SCP-682",
+  "SCP-914","SCP-079","SCP-076","SCP-035","SCP-507"
+];
+
+// Balance knobs: easier to tweak without hunting through the whole file.
+const BALANCE = {
+  personnelDaily: 0.84,
+  scpDaily: 0.76,
+  researchDaily: 0.5,
+  researchInit: 0.8,
+  researchSpeed: 1.4,
+  processSpeed: 1.4,
+};
+const CHAOS_RAID_COST          = 200000; // cost if player responds AFTER raid lands
+const CHAOS_RAID_EARLY_COST    = 150000; // cost if player pre-deploys during warning
+const CHAOS_RAID_DURATION_HOURS = 5;    // response timer when reacting after landing
+const CHAOS_RAID_DURATION_EARLY = 4;    // response timer when pre-deployed
+const CHAOS_RAID_WARNING_HOURS  = 0.5;  // advance-warning window before raid lands
+
+const DEPT_DEFS = {
+  security:{
+    label:"Security Department",col:"#bb4444",
+    roles:[
+      {role:"Security Captain",lvl:"LVL-3",cost:1500,key:true,max:2,start:1},
+      {role:"Security Officer",lvl:"LVL-1",cost:500,key:false,max:40,start:8},
+    ]
+  },
+  mtf:{
+    label:"Mobile Task Forces",col:"#cc6644",
+    roles:[
+      {role:"MTF Commander",lvl:"LVL-4",cost:2000,key:true,max:1,start:1},
+      {role:"MTF Agent",lvl:"LVL-2",cost:1000,key:false,max:25,start:5},
+    ]
+  },
+  research:{
+    label:"Research Department",col:"#4455bb",
+    roles:[
+      {role:"Senior Researcher",lvl:"LVL-4",cost:2400,key:true,max:1,start:1},
+      {role:"Research Scientist",lvl:"LVL-3",cost:1800,key:true,max:4,start:1},
+      {role:"Junior Researcher",lvl:"LVL-2",cost:1200,key:false,max:25,start:5},
+      {role:"Research Assistant",lvl:"LVL-1",cost:600,key:false,max:30,start:8},
+    ]
+  },
+  containment:{
+    label:"Containment Division",col:"#448844",
+    roles:[
+      {role:"Chief Containment Specialist",lvl:"LVL-4",cost:2500,key:true,max:1,start:1},
+      {role:"Containment Engineer",lvl:"LVL-2",cost:1250,key:false,max:25,start:10},
+    ]
+  },
+  admin:{
+    label:"Administration",col:"#887755",
+    roles:[
+      {role:"Site Manager",lvl:"LVL-4",cost:3000,key:true,max:3,start:1},
+      {role:"Assistant Manager",lvl:"LVL-3",cost:2250,key:false,max:10,start:3},
+    ]
+  },
+};
+
+// ══════════════════════════════════════════════════════
+// GAME STATE
+// ══════════════════════════════════════════════════════
+let G = {}, gameInt = null, recontainInt = null, curTab = 'finance', selSite = null, mobileSection = 'centerPanel';
+
+function initState(siteNum) {
+  const depts = {};
+  for (const [k, def] of Object.entries(DEPT_DEFS)) {
+    depts[k] = {
+      roles: def.roles.map(r => ({
+        ...r, count: r.start, totalKia: 0,
+      }))
+    };
+  }
+  const scps = {};
+  for (const id of ["SCP-173","SCP-096","SCP-131"]) {
+    const d = SCP_DB[id];
+    scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+  }
+  G = {
+    siteNum, day:1, hour:0, budget:3000000,
+    performance:75,
+    depts, scps,
+    scpQueue: [...SCP_QUEUE_DEFS],
+    nextScpDay: 20,
+    nextGrantDay: 30,
+    grantBase: 3000000,
+    activeBreaches: [],
+    totalCasualties:0, totalBreaches:0, totalResearch:0, researchFundsEarned:0,
+    log:[], paused:false, over:false, speed:1,
+    containmentCollapseActive:false,
+    chaosRaid:null,
+    dailyResearchCasualties:0,  // ← CHANGE 1: initialized here
+  };
+}
+
+// ══════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════
+const fmt$ = n => (n<0?'-$'+Math.abs(Math.round(n)).toLocaleString():'$'+Math.round(n).toLocaleString());
+const hr2 = h => String(h).padStart(2,'0')+':00';
+const fmtDurationHours = h => {
+  if (h <= 0) return '0m';
+  if (h < 1) return `${Math.round(h * 60)}m`;
+  return Number.isInteger(h) ? `${h}h` : `${h.toFixed(1)}h`;
+};
+const tStr = () => `D${G.day} ${hr2(G.hour)}`;
+
+function addLog(msg, type='info') {
+  G.log.unshift({msg, type, t: tStr()});
+  if (G.log.length > 300) G.log.pop();
+  renderLog();
+}
+
+function notify(title, body, type='info', ms=5000) {
+  const wrap = document.getElementById('notifs');
+  // Hard cap at 4: evict the oldest notification when the queue is full.
+  while (wrap.children.length >= 4) wrap.removeChild(wrap.firstChild);
+  const el = document.createElement('div');
+  el.className = `notif ${type}`;
+  el.innerHTML = `<div class="nt">${title}</div><div class="nb">${body}</div>`;
+  wrap.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, ms);
+}
+
+function totalPers() {
+  return Object.values(G.depts).reduce((s,d) => s + d.roles.reduce((r,ro) => r+ro.count, 0), 0);
+}
+function dailyPersonnel() {
+  return Object.values(G.depts).reduce((s,d) => s + d.roles.reduce((r,ro) => r+ro.count*ro.cost, 0), 0) * BALANCE.personnelDaily;
+}
+function weeklyPersonnel() { return dailyPersonnel() * 7; }
+function dailySCP() {
+  return Object.values(G.scps).reduce((s,sc) => s+sc.cCost, 0) * BALANCE.scpDaily;
+}
+function dailyResearch() {
+  return Object.values(G.scps).reduce((s,sc) => {
+    if (!sc.researching||sc.research>=100) return s;
+    return s + (sc.cls==='Keter'?2600:sc.cls==='Euclid'?1200:500);
+  }, 0);
+}
+function dailyPower() {
+  const scpLoad = Object.keys(G.scps).length * 2000;
+  const breachLoad = G.activeBreaches.length * 5000;
+  return 14000 + scpLoad + breachLoad;
+}
+function dailyCost() { return dailyPersonnel()+dailySCP()+dailyResearch()+dailyPower(); }
+function researchers() { return G.depts.research.roles.reduce((s,r)=>s+r.count,0); }
+function researchFunding(cls, initCost = 0) {
+  if (cls === 'Safe') return Math.round((initCost || resInitCost('Safe')) * 1.75);
+  return Math.round((cls==='Euclid'?40000:100000) * BALANCE.processSpeed);
+}
+function security() { return G.depts.security.roles.reduce((s,r)=>s+r.count,0); }
+function engineers() { return (G.depts.containment.roles.find(r=>r.role==="Containment Engineer")||{count:0}).count; }
+function containmentStaff() { return G.depts.containment.roles.reduce((s,r)=>s+r.count,0); }
+function hasResearchers() { return researchers() > 0; }
+function hasSecurity() { return security() > 0; }
+function mtf() { return G.depts.mtf.roles.reduce((s,r)=>s+r.count,0); }
+function hasRecontainmentTeam() { return hasSecurity() || mtf() > 0; }
+function hasContainment() { return containmentStaff() > 0; }
+function insufficientPersonnel(kind, need) {
+  notify('Insufficient Personnel', need, 'breach', 7000);
+  addLog(`INSUFFICIENT PERSONNEL: ${kind}`, 'warn');
+}
+function triggerMassContainmentBreach() {
+  if (G.containmentCollapseActive) return;
+  G.containmentCollapseActive = true;
+  addLog('MASS CONTAINMENT BREACH: Containment Division offline — all SCPs are breaching.', 'breach');
+  notify('⚠ MASS CONTAINMENT BREACH', 'Containment Division has been depleted. All SCPs are now breaching.', 'breach', 10000);
+  let triggered = 0;
+  for (const [id, scp] of Object.entries(G.scps)) {
+    if (!scp.breach && !scp.roaming) { triggerBreach(id); triggered++; }
+  }
+  if (triggered > 0) renderAll();
+}
+function suspendResearchIfNoScientists() {
+  if (hasResearchers()) return;
+  let suspended = false;
+  for (const scp of Object.values(G.scps)) {
+    if (scp.researching) suspended = true;
+    scp.researching = false;
+  }
+  if (suspended) {
+    addLog('Research suspended — Scientific Department is empty.', 'warn');
+    notify('Insufficient Personnel', 'No Scientific Department staff remain. Research is suspended until restaffed.', 'breach', 8000);
+    renderAll();
+  }
+}
+function suspendAllResearch(phase) {
+  const suspended = [];
+  for (const [id, scp] of Object.entries(G.scps)) {
+    if (scp.researching) {
+      scp.researching = false;
+      suspended.push(id);
+    }
+  }
+  if (!suspended.length) return;
+  const phaseLabel = phase === 'warning' ? 'Chaos Insurgency forces inbound' : 'Chaos Insurgency raid';
+  addLog(`RESEARCH SUSPENDED — All active projects halted due to ${phaseLabel}. Affected: ${suspended.join(', ')}. Research may be resumed once the threat is neutralised.`, 'warn');
+  notify('⚠ Research Suspended', `All research halted — ${phaseLabel}. Personnel diverted to emergency stations.`, 'warn', 9000);
+}
+function showRaidOverlay() {
+  document.getElementById('raidOverlay').classList.add('show');
+  document.getElementById('raidBadge').classList.remove('show');
+  updateRaidTopBar();
+  renderRaidOverlay();
+}
+function dismissRaidOverlay() {
+  if (G.chaosRaid) G.chaosRaid.overlayAcknowledged = true;
+  document.getElementById('raidOverlay').classList.remove('show');
+  updateRaidTopBar();
+}
+function hideRaidOverlayAndBadge() {
+  document.getElementById('raidOverlay').classList.remove('show');
+  document.getElementById('raidBadge').classList.remove('show');
+  document.getElementById('raidTopBar').classList.remove('show');
+}
+function updateRaidTopBar() {
+  const raid = G.chaosRaid;
+  const bar = document.getElementById('raidTopBar');
+  const title = document.getElementById('raidTopTitle');
+  const sub = document.getElementById('raidTopSub');
+  const btn = document.getElementById('raidTopStopBtn');
+  const overlayOpen = document.getElementById('raidOverlay').classList.contains('show');
+  if (!raid) {
+    bar.classList.remove('show');
+    return;
+  }
+
+  if (overlayOpen) {
+    bar.classList.remove('show');
+    return;
+  }
+
+  bar.classList.add('show');
+
+  if (raid.warning) {
+    title.textContent = '⚠ CHAOS INSURGENCY WARNING';
+    sub.textContent = `Hostiles inbound · ${raid.warningRemaining.toFixed(1)}h until breach`;
+    if (raid.prepaid) {
+      btn.disabled = true;
+      btn.style.background = 'var(--green)';
+      btn.textContent = '✓ Pre-Deploy Complete';
+    } else {
+      const budgetOk = G.budget >= CHAOS_RAID_EARLY_COST;
+      btn.disabled = G.paused || !budgetOk;
+      btn.style.background = '';
+      btn.textContent = budgetOk
+        ? `Pre-Deploy (${fmt$(CHAOS_RAID_EARLY_COST)})`
+        : `Need ${fmt$(CHAOS_RAID_EARLY_COST)}`;
+    }
+    return;
+  }
+
+  title.textContent = '⚠ CHAOS INSURGENCY RAID';
+  sub.textContent = raid.responseActive
+    ? `Response active · ${raid.responseRemaining.toFixed(1)}h remaining`
+    : 'Site perimeter compromised · tap to open details';
+
+  if (raid.responseActive) {
+    btn.disabled = true;
+    btn.style.background = 'var(--green)';
+    btn.textContent = '✓ Response Deployed';
+  } else {
+    const budgetOk = G.budget >= CHAOS_RAID_COST;
+    btn.disabled = G.paused || !budgetOk;
+    btn.style.background = '';
+    btn.textContent = budgetOk
+      ? `Stop Raid (${fmt$(CHAOS_RAID_COST)})`
+      : `Need ${fmt$(CHAOS_RAID_COST)}`;
+  }
+}
+function renderRaidOverlay() {
+  const raid = G.chaosRaid;
+  if (!raid) { hideRaidOverlayAndBadge(); return; }
+  updateRaidTopBar();
+
+  const statsEl  = document.getElementById('roStats');
+  const stopBtn  = document.getElementById('roStopBtn');
+  const titleEl  = document.getElementById('roTitle');
+  const subEl    = document.getElementById('roSub');
+  const bodyEl   = document.getElementById('roBody');
+
+  // ── WARNING PHASE ──────────────────────────────────────────
+  if (raid.warning) {
+    document.getElementById('raidOverlay').classList.add('show');
+    document.getElementById('raidBadge').classList.remove('show');
+    titleEl.textContent = '⚠ CHAOS INSURGENCY DETECTED';
+    subEl.textContent   = 'Hostile Forces Mobilizing — Secure the Facility Now';
+    bodyEl.textContent  = 'Intelligence has confirmed Chaos Insurgency operatives advancing on this facility. '
+      + 'You have a limited window to pre-deploy response units. '
+      + 'Doing so now is cheaper and will shorten the engagement window once hostiles breach. '
+      + 'The raid cannot be prevented — damage will still occur when they arrive, but any loose SCPs will be swept up by the response teams.';
+
+    const budgetOk = G.budget >= CHAOS_RAID_EARLY_COST;
+    statsEl.innerHTML = `
+      <span class="ro-sl">Status</span><span class="ro-sv orange">WARNING — ${raid.warningRemaining.toFixed(1)}h Until Breach</span>
+      <span class="ro-sl">Early Deploy Cost</span><span class="ro-sv ${budgetOk?'orange':'red'}">${fmt$(CHAOS_RAID_EARLY_COST)}</span>
+      <span class="ro-sl">Standard Cost (after breach)</span><span class="ro-sv">${fmt$(CHAOS_RAID_COST)}</span>
+      <span class="ro-sl">Early Response Window</span><span class="ro-sv orange">${CHAOS_RAID_DURATION_EARLY}h (vs ${CHAOS_RAID_DURATION_HOURS}h standard)</span>`;
+
+    if (raid.prepaid) {
+      stopBtn.disabled = true;
+      stopBtn.textContent = '✓ Response Teams Pre-Deployed — Awaiting Breach';
+      stopBtn.style.background = 'var(--green)';
+    } else {
+      stopBtn.disabled = G.paused || !budgetOk;
+      stopBtn.style.background = '';
+      stopBtn.textContent = budgetOk
+        ? `⚡ Pre-Deploy Response Teams (${fmt$(CHAOS_RAID_EARLY_COST)})`
+        : `Insufficient Funds — Need ${fmt$(CHAOS_RAID_EARLY_COST)}`;
+    }
+    return;
+  }
+
+  // ── ACTIVE RAID PHASE ──────────────────────────────────────
+  if (!raid.active) { hideRaidOverlayAndBadge(); return; }
+  titleEl.textContent = '⚠ CHAOS INSURGENCY RAID';
+  subEl.textContent   = 'Site Perimeter Compromised — All Personnel to Stations';
+  bodyEl.textContent  = 'Chaos Insurgency operatives have breached the site perimeter. SCP breaches will continue '
+    + 'and personnel casualties will mount until the raid is neutralized. Loose anomalies are swept up as part of the response.';
+  stopBtn.style.background = '';
+
+  const elapsed  = raid.elapsed.toFixed(1);
+  const budgetOk = G.budget >= CHAOS_RAID_COST;
+
+  if (raid.responseActive) {
+    const dur = raid.prepaid ? CHAOS_RAID_DURATION_EARLY : CHAOS_RAID_DURATION_HOURS;
+    const pct = Math.max(0, Math.min(100, ((dur - raid.responseRemaining) / dur) * 100));
+    statsEl.innerHTML = `
+      <span class="ro-sl">Status</span><span class="ro-sv orange">Response Active${raid.prepaid?' (Pre-Deployed)':''}</span>
+      <span class="ro-sl">Elapsed</span><span class="ro-sv">${elapsed}h</span>
+      <span class="ro-sl">Hostiles Remaining</span><span class="ro-sv red">${raid.responseRemaining.toFixed(1)}h est.</span>
+      <span class="ro-sl">Active Breaches</span><span class="ro-sv red">${G.activeBreaches.length}</span>
+      <div style="grid-column:1/-1;margin-top:4px">
+        <div style="font-size:9px;color:var(--dim3);margin-bottom:3px;letter-spacing:.5px;text-transform:uppercase">Elimination Progress</div>
+        <div class="ro-response-bar"><div class="ro-response-fill" style="width:${pct}%"></div></div>
+        <div style="font-size:9px;color:var(--txt2);margin-top:2px">Elimination teams engaged — stand by.</div>
+      </div>`;
+    stopBtn.disabled = true;
+    stopBtn.textContent = 'Response Deployed — Awaiting Neutralization';
+  } else {
+    statsEl.innerHTML = `
+      <span class="ro-sl">Status</span><span class="ro-sv red">Hostiles On-Site</span>
+      <span class="ro-sl">Elapsed</span><span class="ro-sv">${elapsed}h</span>
+      <span class="ro-sl">Response Cost</span><span class="ro-sv ${budgetOk?'':'red'}">${fmt$(CHAOS_RAID_COST)}</span>
+      <span class="ro-sl">Active Breaches</span><span class="ro-sv red">${G.activeBreaches.length}</span>`;
+    stopBtn.disabled = G.paused || !budgetOk;
+    stopBtn.textContent = budgetOk
+      ? `⚡ Deploy Emergency Response (${fmt$(CHAOS_RAID_COST)})`
+      : `Insufficient Funds — Need ${fmt$(CHAOS_RAID_COST)}`;
+  }
+}
+
+// ── Phase 1: start the 0.5h warning window ─────────────────────────────────
+function triggerChaosRaidWarning() {
+  if (G.over || G.chaosRaid) return;
+  setSpeed(1); // ← ADD THIS: drop to 1x so the pre-deploy window is usable
+  G.chaosRaid = {
+    active: false, warning: true,
+    warningRemaining: CHAOS_RAID_WARNING_HOURS,
+    prepaid: false,
+    responseActive: false, responseRemaining: 0, elapsed: 0,
+    overlayAcknowledged: false
+  };
+  suspendAllResearch('warning');
+  addLog('CHAOS INSURGENCY ALERT: Hostile units detected approaching the facility. Deploy response units immediately.', 'warn');
+  notify('⚠ CI FORCES DETECTED',
+    `Chaos Insurgency operatives inbound. You have ${CHAOS_RAID_WARNING_HOURS}h to pre-deploy response teams at reduced cost.`,
+    'warn', 12000);
+  showRaidOverlay();
+  updateRaidTopBar();
+}
+
+// ── Phase 2: raid arrives (called when warning timer expires) ────────────────
+function triggerChaosRaid() {
+  if (G.over) return;
+  const wasPrepaid = G.chaosRaid?.prepaid || false;
+  G.chaosRaid = {
+    active: true, warning: false, warningRemaining: 0,
+    prepaid: wasPrepaid,
+    responseActive: wasPrepaid,
+    responseRemaining: wasPrepaid ? CHAOS_RAID_DURATION_EARLY : 0,
+    elapsed: 0,
+    overlayAcknowledged: false
+  };
+  addLog('CHAOS INSURGENCY RAID: Hostiles have breached the site perimeter.', 'breach');
+  suspendAllResearch('raid');
+  const raidCasualties = Math.max(3, Math.ceil(totalPers() * 0.08));
+  for (let i = 0; i < raidCasualties; i++) {
+    if (!causeCasualty('chaos')) break;
+  };
+  if (wasPrepaid) {
+    addLog(`CHAOS RESPONSE AUTO-ACTIVATED — pre-deployed teams now engaging. Elimination window: ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok');
+    notify('⚡ RAID — RESPONSE ACTIVE', 'Pre-deployed teams engaging hostiles automatically.', 'warn', 9000);
+    beginRaidSCPSweep();
+  } else {
+    showRaidOverlay();
+  }
+  updateRaidTopBar();
+}
+
+function beginRaidSCPSweep() {
+  if (!hasRecontainmentTeam()) {
+    addLog('RAID CONTAINMENT SWEEP SKIPPED — no Security Department or MTF personnel remain to recontain loose SCPs.', 'warn');
+    notify('Insufficient Personnel', 'No recontainment teams remain. Loose SCPs must be handled manually.', 'breach', 9000);
+    return;
+  }
+
+  const looseScps = [];
+  for (const scp of Object.values(G.scps)) {
+    if ((scp.breach || scp.roaming) && !scp.recontainPending) {
+      scp.recontainPending = true;
+      scp.recontainDuration = recontainDurationHours(scp.cls);
+      scp.recontainRemaining = scp.recontainDuration;
+      looseScps.push(scp.id);
+    }
+  }
+
+  if (!looseScps.length) return;
+
+  addLog(`RAID CONTAINMENT SWEEP INITIATED — ${looseScps.join(', ')} now being recontained while hostiles are engaged.`, 'warn');
+  notify('⚡ RAID CONTAINMENT SWEEP', `${looseScps.length} loose SCP${looseScps.length>1?'s':''} are being recontained alongside the CI raid.`, 'warn', 9000);
+  ensureRecontainTicker();
+  renderAll();
+}
+
+function stopChaosRaid() {
+  if (G.paused) return;
+  const raid = G.chaosRaid;
+  if (!raid) return;
+
+  // ── Pre-deploy during warning window ───────────────────────────────────────
+  if (raid.warning && !raid.prepaid) {
+    if (G.budget < CHAOS_RAID_EARLY_COST) {
+      notify('Insufficient Funds', `Pre-deployment requires ${fmt$(CHAOS_RAID_EARLY_COST)}.`, 'breach');
+      renderRaidOverlay();
+      return;
+    }
+    G.budget -= CHAOS_RAID_EARLY_COST;
+    raid.prepaid = true;
+    addLog(`CI RESPONSE PRE-DEPLOYED — ${fmt$(CHAOS_RAID_EARLY_COST)} committed. Teams will auto-engage upon breach. Response window: ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok');
+    notify('✓ Response Teams Pre-Deployed',
+      `Teams ready to engage on arrival. Elimination window reduced to ${CHAOS_RAID_DURATION_EARLY}h.`, 'ok', 8000);
+    renderAll();
+    updateRaidTopBar();
+    return;
+  }
+
+  // ── Standard stop during active raid ───────────────────────────────────────
+  if (!raid.active || raid.responseActive) return;
+  if (G.budget < CHAOS_RAID_COST) {
+    notify('Insufficient Funds', `Emergency response requires ${fmt$(CHAOS_RAID_COST)}.`, 'breach');
+    renderRaidOverlay();
+    return;
+  }
+  G.budget -= CHAOS_RAID_COST;
+  raid.responseActive = true;
+  raid.responseRemaining = CHAOS_RAID_DURATION_HOURS;
+  addLog(`CHAOS CONTAINMENT RESPONSE INITIATED — hostiles will be hunted for up to ${CHAOS_RAID_DURATION_HOURS} hours. Cost: ${fmt$(CHAOS_RAID_COST)}.`, 'warn');
+  beginRaidSCPSweep();
+  renderAll();
+  updateRaidTopBar();
+}
+function advanceChaosRaidHalfHour() {
+  const raid = G.chaosRaid;
+  if (!raid) return false;
+
+  // ── Warning countdown ────────────────────────────────────────────────────
+  if (raid.warning) {
+    raid.warningRemaining = Math.max(0, raid.warningRemaining - 0.5);
+    if (raid.warningRemaining <= 0) {
+      // Warning window has expired — raid lands now
+      addLog('CHAOS INSURGENCY: Warning period elapsed. Hostiles are breaching the perimeter.', 'breach');
+      hideRaidOverlayAndBadge();
+      triggerChaosRaid();
+      if (!G.chaosRaid?.prepaid) showRaidOverlay();
+      return true; // transition just happened; caller must skip the second advance
+    }
+    return false;
+  }
+
+  // ── Active raid damage tick ──────────────────────────────────────────────
+  if (!raid.active) return false;
+  raid.elapsed += 0.5;
+  const candidates = Object.values(G.scps).filter(s => !s.breach && !s.roaming);
+  if (candidates.length) {
+    const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+    triggerBreach(chosen.id);
+  }
+  const hostileHits = Math.max(1, Math.ceil(totalPers() * 0.03));
+  for (let i = 0; i < hostileHits; i++) {
+    if (!causeCasualty('chaos')) break;
+  }
+  if (raid.responseActive) {
+    raid.responseRemaining = Math.max(0, raid.responseRemaining - 0.5);
+    if (raid.responseRemaining <= 0) {
+      raid.active = false;
+      addLog('CHAOS INSURGENCY RAID ELIMINATED — hostiles neutralized and site perimeter secured.', 'ok');
+      notify('✓ RAID ELIMINATED', 'Chaos hostiles have been neutralized.', 'ok', 9000);
+      beginRaidSCPSweep(); // sweep any SCPs that breached during the response window
+      G.chaosRaid = null;
+      hideRaidOverlayAndBadge();
+      updateRaidTopBar();
+    }
+  }
+  return false;
+}
+
+
+// ══════════════════════════════════════════════════════
+// CASUALTY
+// ══════════════════════════════════════════════════════
+function causeCasualty(source) {
+  const src = source==='research' ? 'research accident'
+    : source==='chaos' ? 'Chaos Insurgency raid'
+    : `${source} breach`;
+
+  let choice;
+
+  if (source === 'research') {
+    // Research accidents only reach non-key Scientific and Security personnel.
+    const pool = [];
+    for (const dk of ['research', 'security']) {
+      const dept = G.depts[dk];
+      for (let ri = 0; ri < dept.roles.length; ri++) {
+        const role = dept.roles[ri];
+        if (role.key) continue; // key personnel are never killed in research accidents
+        for (let n = 0; n < role.count; n++) pool.push({ dk, ri });
+      }
+    }
+    if (!pool.length) return false;
+    choice = pool[Math.floor(Math.random() * pool.length)];
+  } else {
+    // Breach / CI raid: frontline departments are more likely to absorb casualties.
+    // Administration remains protected until all non-admin staff are gone.
+    const weightedNonAdminPool = [];
+    const adminPool = [];
+    const frontlineDepartments = new Set(['security', 'mtf']);
+    const frontlineWeight = 3; // bias raids/breaches toward Security and MTF
+
+    for (const [dk, dept] of Object.entries(G.depts)) {
+      const bucket = dk === 'admin' ? adminPool : weightedNonAdminPool;
+      const weight = frontlineDepartments.has(dk) ? frontlineWeight : 1;
+      for (let ri = 0; ri < dept.roles.length; ri++) {
+        for (let n = 0; n < dept.roles[ri].count; n++) {
+          for (let w = 0; w < weight; w++) bucket.push({ dk, ri });
+        }
+      }
+    }
+
+    const attackPool = weightedNonAdminPool.length ? weightedNonAdminPool : adminPool;
+    if (!attackPool.length) return false;
+    choice = attackPool[Math.floor(Math.random() * attackPool.length)];
+  }
+
+  const tgt = G.depts[choice.dk].roles[choice.ri];
+  tgt.count--;
+  tgt.totalKia++;
+  G.totalCasualties++;
+  G.performance = Math.max(0, G.performance - 1);
+  addLog(`CASUALTY: ${tgt.role} (${DEPT_DEFS[choice.dk].label}) KIA — ${src}`, 'dead');
+  notify('☠ PERSONNEL KIA', `${tgt.role} lost during ${src}`, 'dead', 6500);
+
+  // Research accident that wipes Security triggers containment collapse —
+  // punishes leaving Security unstaffed while conducting hazardous research.
+  if (source === 'research' && !hasSecurity()) {
+    addLog('WARNING: Security Department depleted during research incident — containment integrity compromised.', 'warn');
+    triggerMassContainmentBreach();
+  }
+
+  return true;
+}
+
+// ══════════════════════════════════════════════════════
+// BREACH SYSTEM
+// ══════════════════════════════════════════════════════
+function breachChance(scp) {
+  // Class-first breach model:
+  // Safe is least likely, Keter sits in the middle,
+  // and Euclid is most likely to breach under routine containment pressure.
+  const classBase = {
+    Safe: 0.20000,
+    Keter: 0.00500,
+    Euclid: 0.01000,
+  }[scp.cls] || 0.001;
+
+  // Individual SCP traits still matter, but only as a small seasoning layer.
+  const anomalyVariance = 0.9 + Math.min(0.18, Math.max(0, scp.bBase || 0) * 5);
+  let c = classBase * anomalyVariance;
+
+  // Research, security, and containment engineering lower breach odds for non-Safe classes.
+  if (scp.cls !== 'Safe') c *= (1 - (scp.research / 100) * 0.68);
+  const sec = security();
+  c *= Math.max(0.32, 1 - Math.log(sec + 1) * 0.1);
+  const eng = engineers();
+  c *= Math.max(0.4, 1 - eng * 0.03);
+
+  // Breaches should stay possible, but they should not inherit the full process-speed boost.
+  return c * 0.72;
+}
+
+function breachCasualtyChance(scp) {
+  if (scp.cls === 'Safe') return 0;
+  const classBase = scp.cls === 'Euclid' ? 0.28 : 0.58;
+  const threat = Math.min(0.3, (scp.casualty || 0) * 0.35);
+  const researchMitigation = 1 - Math.min(0.35, (scp.research / 100) * 0.35);
+  return Math.min(0.95, Math.max(0, (classBase + threat) * researchMitigation));
+}
+
+function triggerBreach(id) {
+  const scp = G.scps[id];
+  if (scp.breach || scp.roaming) return;
+
+  // Safe-class SCPs roam the facility instead of breaching
+  if (scp.cls === 'Safe') {
+    scp.roaming = true;
+    scp.contained = false;
+    addLog(`ROAMING: ${id} (Safe) — ${scp.name} has left containment and is roaming the facility.`, 'info');
+    notify(`🔵 ROAMING: ${id}`, `${scp.name} is wandering the facility. Recontainment is available at no cost.`, 'info', 9000);
+    updateBanner();
+    return;
+  }
+
+  scp.breach = true;
+  scp.contained = false;
+  if (!G.activeBreaches.includes(id)) G.activeBreaches.push(id);
+  G.totalBreaches++;
+  G.performance = Math.max(0, G.performance-5);
+  addLog(`CONTAINMENT BREACH: ${id} (${scp.cls}) — RESPOND IMMEDIATELY`, 'breach');
+  notify(`⚠ BREACH: ${id}`, `${scp.name} has breached containment!`, 'breach', 9000);
+  updateBanner();
+
+  // Initial breach casualties can be more severe than the steady-state hourly danger.
+  const burst = scp.cls === 'Euclid' ? 2 : scp.cls === 'Keter' ? 3 : 0;
+  for (let i = 0; i < burst; i++) {
+    if (Math.random() < breachCasualtyChance(scp)) causeCasualty(id);
+  }
+}
+
+function recontainDurationHours(cls) {
+  return cls === 'Safe' ? 0.5 : cls === 'Euclid' ? 2 : 3;
+}
+
+function completeRecontainment(id) {
+  const scp = G.scps[id];
+  if (!scp || !scp.recontainPending) return;
+  const wasRoaming = scp.roaming;
+  scp.recontainPending = false;
+  scp.recontainRemaining = 0;
+  scp.recontainDuration = 0;
+  scp.breach = false;
+  scp.roaming = false;
+  scp.contained = true;
+  G.activeBreaches = G.activeBreaches.filter(x=>x!==id);
+  if (wasRoaming) {
+    addLog(`${id} guided back to containment chamber.`, 'ok');
+  } else {
+    G.performance = Math.min(100, G.performance+3);
+    addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
+  }
+  notify('✓ Recontainment Complete', `${id} has been secured.`, 'ok', 7000);
+  updateBanner();
+  renderAll();
+}
+
+function ensureRecontainTicker() {
+  if (recontainInt) return;
+  recontainInt = setInterval(() => {
+    if (G.over) {
+      clearInterval(recontainInt);
+      recontainInt = null;
+      return;
+    }
+    if (G.paused) return;
+
+    if (!hasRecontainmentTeam()) {
+      const pending = Object.values(G.scps).filter(s => s.recontainPending).length;
+      if (pending) {
+        for (const scp of Object.values(G.scps)) {
+          if (!scp.recontainPending) continue;
+          scp.recontainPending = false;
+          scp.recontainRemaining = 0;
+          scp.recontainDuration = 0;
+        }
+        addLog('Recontainment suspended — Security Department and MTF are both unavailable.', 'warn');
+        notify('Insufficient Personnel', 'No recontainment can continue without Security Department or MTF staff.', 'breach', 8000);
+        renderAll();
+      }
+      clearInterval(recontainInt);
+      recontainInt = null;
+      return;
+    }
+
+    let changed = false;
+    for (const scp of Object.values(G.scps)) {
+      if (!scp.recontainPending) continue;
+      scp.recontainRemaining = Math.max(0, scp.recontainRemaining - (0.1 * (G.speed || 1)));
+      changed = true;
+      if (scp.recontainRemaining <= 0) completeRecontainment(scp.id);
+    }
+
+    if (changed) renderSCPs();
+
+    if (!Object.values(G.scps).some(s => s.recontainPending)) {
+      clearInterval(recontainInt);
+      recontainInt = null;
+    }
+  }, 100);
+}
+
+function recontain(id) {
+  if (G.paused) return;
+  const scp = G.scps[id];
+  if (scp.recontainPending) return;
+  if (!hasRecontainmentTeam()) { insufficientPersonnel('Security Department / MTF', 'No recontainment is possible until either the Security Department or Mobile Task Forces have personnel available.'); return; }
+
+  // Roaming Safe SCPs: free recontainment, no budget charge
+  if (scp.roaming) {
+    scp.recontainPending = true;
+    scp.recontainDuration = recontainDurationHours(scp.cls);
+    scp.recontainRemaining = scp.recontainDuration;
+    addLog(`Recontainment initiated for roaming ${id} — no cost.`, 'info');
+    notify('🔵 Recontainment initiated', `Personnel guiding ${id} back to its chamber.`, 'info', 6000);
+    ensureRecontainTicker();
+    renderAll();
+    return;
+  }
+
+  if (!scp.breach) return;
+  if (G.budget < scp.rCost) {
+    notify('Insufficient Funds', `Recontainment requires ${fmt$(scp.rCost)}`, 'breach'); return;
+  }
+  G.budget -= scp.rCost;
+  scp.recontainPending = true;
+  scp.recontainDuration = recontainDurationHours(scp.cls);
+  scp.recontainRemaining = scp.recontainDuration;
+  addLog(`Recontainment initiated for ${id}. Cost: ${fmt$(scp.rCost)}.`, 'warn');
+  notify('⚠ Recontainment initiated', `Deploying MTF units to recontain ${id}.`, 'warn', 7000);
+  ensureRecontainTicker();
+  renderAll();
+}
+
+function updateBanner() {
+  document.getElementById('alertBanner').style.display = G.activeBreaches.length ? 'block':'none';
+}
+
+// ══════════════════════════════════════════════════════
+// RESEARCH
+// ══════════════════════════════════════════════════════
+function resInitCost(cls) { return Math.round((cls==='Safe'?25000:cls==='Euclid'?75000:150000) * BALANCE.researchInit); }
+
+function beginResearch(id) {
+  if (G.paused) return;
+  const scp = G.scps[id];
+  if (scp.researching||scp.research>=100||scp.breach||scp.roaming||G.chaosRaid?.active) return;
+  if (!hasResearchers()) { insufficientPersonnel('Scientific Department', 'No research can begin until the Scientific Department has at least one researcher.'); return; }
+  if (!scp.researchPaid) {
+    const c = resInitCost(scp.cls);
+    if (G.budget < c) { notify('Insufficient Funds', `Research on ${id} needs ${fmt$(c)}`, 'breach'); return; }
+    G.budget -= c;
+    scp.researchInitCost = c;
+    scp.researchPaid = true;
+    addLog(`Research initiated on ${id}. Initial cost: ${fmt$(c)}`, 'info');
+  } else {
+    addLog(`Research on ${id} resumed.`, 'info');
+  }
+  scp.researching = true;
+  renderAll();
+}
+
+function stopResearch(id) {
+  if (G.paused) return;
+  const scp = G.scps[id];
+  scp.researching = false;
+  addLog(`Research on ${id} suspended.`, 'warn');
+  renderAll();
+}
+
+function tickResearch() {
+  if (G.chaosRaid?.active) return;
+  for (const [id, scp] of Object.entries(G.scps)) {
+    if (!scp.researching||scp.research>=100||scp.breach||scp.roaming) continue;
+    const rc = researchers();
+    if (!rc) {
+      scp.researching = false;
+      addLog(`Research on ${id} suspended — no Scientific Department personnel available.`, 'warn');
+      notify('Insufficient Personnel', 'Scientific Department is empty. Research has been suspended.', 'breach', 7000);
+      continue;
+    }
+    const base = scp.cls==='Safe'?3.5:scp.cls==='Euclid'?2.5:1.7;
+    const prog = base * Math.min(2.35, Math.log(rc+1)*0.7) * BALANCE.researchSpeed;
+    // Research accident — harsher chance formula, multiple casualties for higher-class SCPs
+    const accidentChance = Math.min(0.42, Math.max(0.03, (scp.risk || 0) * 0.85 + (scp.cls==='Keter'?0.08:scp.cls==='Euclid'?0.05:0.02)));
+    if (scp.risk>0 && Math.random()<accidentChance) {
+      const casualties = scp.cls==='Keter' ? 2 : scp.cls==='Euclid' ? 1 + (Math.random()<0.35 ? 1 : 0) : 1;
+      for (let i = 0; i < casualties; i++) causeCasualty('research');
+      G.dailyResearchCasualties += casualties;  // ← CHANGE 2: track daily casualties
+
+      if (scp.cls==='Keter' || G.dailyResearchCasualties >= 7) {
+        scp.researching = false;
+        const reason = G.dailyResearchCasualties >= 7
+          ? `critical casualty threshold reached (${G.dailyResearchCasualties} today)`
+          : 'severe fatality event';
+        addLog(`Research on ${id} HALTED — ${reason}. Protocol suspended.`, 'dead');
+        notify('⚠ Research Suspended', `Fatal incident during ${id} research.`, 'dead', 8000);
+        continue;
+      }
+    }
+    scp.research = Math.min(100, scp.research+prog);
+    if (scp.research>=100) {
+      scp.research = 100; scp.researching = false; scp.researchPaid = false;
+      G.totalResearch++;
+      const fund = researchFunding(scp.cls, scp.researchInitCost);
+      G.researchFundsEarned = (G.researchFundsEarned || 0) + fund;
+      G.budget += fund;
+      G.performance = Math.min(100, G.performance+5);
+      if (scp.cls === 'Safe') {
+        addLog(`Research on ${id} COMPLETE. Safe-class discovery reward secured: ${fmt$(fund)} (1.75x initial cost).`, 'ok');
+        notify('✓ Research Complete', `${id} protocols optimized. Reward: ${fmt$(fund)}`, 'ok', 7000);
+      } else {
+        addLog(`Research on ${id} COMPLETE. Breach risk reduced 60%. Funding secured: ${fmt$(fund)}.`, 'ok');
+        notify('✓ Research Complete', `${id} protocols optimized. Research funding: ${fmt$(fund)}`, 'ok', 7000);
+      }
+      scp.researchInitCost = 0;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SCP ADDITION
+// ══════════════════════════════════════════════════════
+function addSCP() {
+  if (!G.scpQueue.length) return;
+  const id = G.scpQueue[0];
+  const d = SCP_DB[id];
+  if (!hasContainment()) {
+    addLog(`ANOMALY TRANSFER POSTPONED: ${id} — Containment Division offline. Transfer suspended until site is operational.`, 'warn');
+    notify('⚠ TRANSFER POSTPONED', `${id} transfer suspended. Restore Containment Division to proceed.`, 'warn', 10000);
+    G.nextScpDay = G.day + 1;
+    return;
+  }
+  G.scpQueue.shift();
+  G.scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+  G.nextScpDay = G.day + 20;
+  addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
+  notify(`📦 ANOMALY TRANSFERRED`,
+    `${id} — "${d.name}" (${d.cls})\nContainment cost: ${fmt$(d.cCost)}/day`, 'newscp', 10000);
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════
+// O5 GRANT
+// ══════════════════════════════════════════════════════
+function processGrant() {
+  const mod = 1 + ((G.performance-65)/175);
+  const grant = Math.round(G.grantBase * mod);
+  G.budget += grant;
+  G.nextGrantDay = G.day + 30;
+  const tier = G.performance>=85?'EXEMPLARY':G.performance>=65?'SATISFACTORY':G.performance>=40?'MARGINAL':'POOR';
+  addLog(`O5 COUNCIL GRANT: ${fmt$(grant)} disbursed. Rating: ${tier}`, 'o5');
+  notify('💰 O5 Council Transfer', `Performance: ${tier}\nGrant: ${fmt$(grant)}`, 'o5', 8000);
+}
+
+// ══════════════════════════════════════════════════════
+// GAME TICK
+// ══════════════════════════════════════════════════════
+function tick() {
+  if (G.paused || G.over) return;
+  G.hour++;
+
+  // Advance raid BEFORE the day block, so a freshly-triggered warning
+  // isn't immediately eaten in the same tick it's created.
+  if (G.chaosRaid?.active || G.chaosRaid?.warning) {
+    const transitioned = advanceChaosRaidHalfHour();
+    if (!transitioned) advanceChaosRaidHalfHour();
+  }
+
+  if (G.hour >= 24) {
+    G.hour = 0; G.day++;
+    const nonPersonnelCost = dailySCP() + dailyResearch() + dailyPower();
+    G.budget -= nonPersonnelCost;
+    if (G.day % 7 === 0) {
+      const wages = weeklyPersonnel();
+      G.budget -= wages;
+      addLog(`WEEKLY PAYROLL: ${fmt$(wages)} disbursed to all departments.`, 'info');
+    }
+    G.dailyResearchCasualties = 0;  // ← CHANGE 3: reset at the start of each new day
+    if (!G.chaosRaid?.active) tickResearch();
+    suspendResearchIfNoScientists();
+    G.performance = Math.min(100, G.performance + 1);
+    if (!G.chaosRaid && Math.random() < 0.04) triggerChaosRaidWarning();
+    if (G.day >= G.nextGrantDay) processGrant();
+    if (G.day >= G.nextScpDay && G.scpQueue.length) addSCP();
+    if (G.budget < -1000000) {
+      endGame('Financial collapse. The O5 Council has terminated Site operations due to insolvency.'); return;
+    }
+    if (G.budget < 0) {
+      addLog('WARNING: Budget in deficit. Austerity measures required.', 'warn');
+      G.performance = Math.max(0, G.performance - 4);
+    }
+    if (!hasContainment()) {
+      triggerMassContainmentBreach();
+    } else {
+      G.containmentCollapseActive = false;
+    }
+    const allDead = Object.values(G.depts).every(d => d.roles.reduce((s, r) => s + r.count, 0) === 0);
+    if (allDead) { endGame('All site personnel have been lost. Operations cannot continue.'); return; }
+  }
+
+  for (const id of [...G.activeBreaches]) {
+    const scp = G.scps[id];
+    const hourlyFatal = breachCasualtyChance(scp) * 0.35;
+    if (Math.random() < hourlyFatal) causeCasualty(id);
+  }
+  suspendResearchIfNoScientists();
+  renderAll();
+}
+
+function endGame(reason) {
+  G.over = true;
+  clearInterval(gameInt);
+  if (recontainInt) { clearInterval(recontainInt); recontainInt = null; }
+  document.getElementById('gameOver').classList.add('show');
+  document.getElementById('goMsg').textContent = reason;
+  document.getElementById('goStats').innerHTML =
+    `Days survived: ${G.day}
+    Total personnel lost: ${G.totalCasualties}
+    Total breaches: ${G.totalBreaches}
+    Research completed: ${G.totalResearch}
+    Final budget: ${fmt$(G.budget)}`.split('\n').map(l=>`<div>${l.trim()}</div>`).join('');
+}
+
+// ══════════════════════════════════════════════════════
+// PERSONNEL ACTIONS
+// ══════════════════════════════════════════════════════
+function hirePersonnel(dk, ri) {
+  if (G.paused) return;
+  const role = G.depts[dk].roles[ri];
+  if (role.count>=role.max) return;
+  const cost = role.key ? role.cost*30 : role.cost*15;
+  if (G.budget<cost) { notify('Insufficient Funds', `Hiring ${role.role} costs ${fmt$(cost)}`, 'breach'); return; }
+  G.budget -= cost;
+  role.count++;
+  addLog(`Hired: ${role.role} (${DEPT_DEFS[dk].label}). Fee: ${fmt$(cost)}`, 'info');
+  renderAll();
+}
+
+function firePersonnel(dk, ri) {
+  if (G.paused) return;
+  const role = G.depts[dk].roles[ri];
+  if (role.count<=0) return;
+  role.count--;
+  addLog(`Released: ${role.role} (${DEPT_DEFS[dk].label})`, 'info');
+  renderAll();
+}
+
+// ══════════════════════════════════════════════════════
+// RENDERING
+// ══════════════════════════════════════════════════════
+function renderPersonnel() {
+  let html='', grandWeekly=0;
+  for (const [dk, def] of Object.entries(DEPT_DEFS)) {
+    const dept = G.depts[dk];
+    const wCost = dept.roles.reduce((s,r)=>s+r.count*r.cost*7,0) * BALANCE.personnelDaily;
+    grandWeekly += wCost;
+    html+=`<div class="dept">
+      <div class="dept-hd" style="color:${def.col}">${def.label}<span style="color:var(--dim)">${fmt$(wCost)}/week</span></div>`;
+    dept.roles.forEach((r,i)=>{
+      const hCost = r.key?r.cost*30:r.cost*15;
+      const wagePerHead = Math.round(r.cost * 7 * BALANCE.personnelDaily);
+      html+=`<div class="prow">
+        <div class="pinfo">
+          <div class="prole">${r.role}${r.key?'<span class="key-tag">KEY</span>':''}</div>
+          <div class="plvl">${r.lvl} · ${fmt$(wagePerHead)}/week · Hire: ${fmt$(hCost)}</div>
+          ${r.totalKia?`<div class="pkia">☠ ${r.totalKia} KIA total</div>`:''}
+        </div>
+        <span class="pcount">${r.count}</span>
+        <button class="pbtn fire" onclick="firePersonnel('${dk}',${i})" ${r.count<=0||G.paused?'disabled':''}>−</button>
+        <button class="pbtn hire" onclick="hirePersonnel('${dk}',${i})" ${r.count>=r.max||G.budget<hCost||G.paused?'disabled':''}>+</button>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  document.getElementById('persContent').innerHTML = html;
+  document.getElementById('salaryTot').textContent = fmt$(grandWeekly)+'/week';
+}
+
+function renderSCPs() {
+  const scps = Object.values(G.scps);
+  if (!scps.length) {
+    document.getElementById('scpContent').innerHTML = '<div class="no-scp">No anomalies assigned to this site.</div>';
+    return;
+  }
+  const order = {Keter:0,Euclid:1,Safe:2};
+  scps.sort((a,b)=>order[a.cls]-order[b.cls]);
+  let html='';
+  for (const scp of scps) {
+    const pct = breachChance(scp)*24*100;
+    const barCol = pct<4?'var(--green3)':pct<12?'var(--orange3)':'var(--red2)';
+    const barW = Math.min(100, pct*5);
+    const iCost = resInitCost(scp.cls);
+    const dailyR = scp.cls==='Keter'?2600:scp.cls==='Euclid'?1200:500;
+    const cardClass = scp.breach ? ' breaching' : scp.roaming ? ' roaming' : '';
+    const statusTag = scp.breach
+      ? '<span class="breach-tag">⚠ BREACH</span>'
+      : scp.roaming
+        ? '<span class="roaming-tag">🔵 ROAMING</span>'
+        : '<span class="contained-tag">● CONTAINED</span>';
+    html+=`<div class="scard${cardClass}">
+      <div class="sc-hd">
+        <span class="sc-id">${scp.id}</span>
+        <div class="sc-hd-r">
+          ${statusTag}
+          <span class="cls-badge cls-${scp.cls}">${scp.cls}</span>
+        </div>
+      </div>
+      <div class="sc-name">"${scp.name}"</div>
+      <div class="sc-desc">${scp.desc}</div>
+      <div class="sc-grid">
+        ${scp.cls==='Safe' ? '' : `<span class="sg-l">Breach Risk/Day</span><span class="sg-v">${pct.toFixed(1)}%</span>`}
+        <span class="sg-l">Contain Cost</span><span class="sg-v">${fmt$(scp.cCost)}/day</span>
+        <span class="sg-l">Recontain Cost</span><span class="sg-v">${scp.cls==='Safe'?'Free':fmt$(scp.rCost)}</span>
+        <span class="sg-l">Research</span><span class="sg-v">${Math.floor(scp.research)}%</span>
+      </div>
+      ${scp.cls==='Safe'
+        ? ''
+        : `<div class="risk-track"><div class="risk-fill" style="width:${barW}%;background:${barCol}"></div></div>`}
+      <div class="res-track"><div class="res-fill" style="width:${scp.research}%"></div></div>
+      <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
+      <div class="sc-btns">
+        ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasRecontainmentTeam()&&!G.paused?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
+        ${scp.roaming&&!scp.recontainPending?`<button class="sc-btn" style="border-color:var(--blue2);color:var(--blue3)" onclick="recontain('${scp.id}')" ${hasRecontainmentTeam()&&!G.paused?'':'disabled'}>↩ Return to Chamber (Free)</button>`:''}
+        ${scp.recontainPending?`
+          <div class="recontain-wrap">
+            <div class="recontain-lbl">${scp.roaming?'Returning to chamber':'Recontainment in progress'}</div>
+            <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
+            <div class="recontain-sub">${scp.roaming?'Personnel escorting anomaly back to containment chamber.':'Containment team en route. Active breach status remains until complete.'}</div>
+          </div>`:''}
+        ${!scp.breach&&!scp.roaming&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iCost)||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`🔬 Research (${fmt$(iCost)})`}</button>`:''}
+        ${scp.researching&&!scp.breach&&!scp.roaming?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
+        ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">${scp.cls==='Safe'?'✓ Safe-class reward secured':'✓ Breach risk reduced 60%'}</span>`:''}
+      </div>
+    </div>`;
+  }
+  document.getElementById('scpContent').innerHTML = html;
+  const bc = G.activeBreaches.length;
+  document.getElementById('breachCount').textContent = bc?`⚠ ${bc} BREACH${bc>1?'ES':''}`:'' ;
+}
+
+function renderFinance() {
+  const pD=dailyPersonnel(), sD=dailySCP(), rD=dailyResearch(), tD=dailyCost();
+  const dToG = Math.max(0, G.nextGrantDay-G.day);
+  const proj = Math.round(G.grantBase*(1+((G.performance-65)/175)));
+  const gPct = Math.min(100,((30-dToG)/30*100)).toFixed(0);
+  const budget = G.budget;
+  const bCol = budget<0?'var(--red2)':budget<200000?'var(--orange3)':'var(--green3)';
+  const projBal = budget - tD*dToG;
+  document.getElementById('tc-finance').innerHTML=`
+    <div class="fsec">
+      <div class="fhd">Current Balance</div>
+      <div class="frow"><span class="fl">Available Budget</span><span class="fv" style="color:${bCol}">${fmt$(budget)}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Daily Expenditures</div>
+      <div class="frow"><span class="fl">Personnel Wages <span style="font-size:9px;color:var(--dim3)">(weekly, next in ${7 - ((G.day-1) % 7)}d)</span></span><span class="fv exp">${fmt$(weeklyPersonnel())}/wk</span></div>
+      <div class="frow"><span class="fl">SCP Containment</span><span class="fv exp">${fmt$(sD)}/day</span></div>
+      <div class="frow"><span class="fl">Research Operations</span><span class="fv exp">${fmt$(rD)}/day</span></div>
+      <div class="frow"><span class="fl">Power Systems</span><span class="fv exp">${fmt$(dailyPower())}/day</span></div>
+      <div class="ftotal"><span>Avg. Daily Burn</span><span class="fv exp">${fmt$(tD)}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">O5 Council Grant</div>
+      <div class="frow"><span class="fl">Next transfer in</span><span class="fv neu">${dToG} days</span></div>
+      <div class="gbar-track"><div class="gbar-fill" style="width:${gPct}%"></div></div>
+      <div class="frow"><span class="fl">Projected grant</span><span class="fv inc">${fmt$(proj)}</span></div>
+      <div class="frow"><span class="fl">Performance modifier</span><span class="fv neu">×${(1+((G.performance-65)/175)).toFixed(2)}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Research Funding</div>
+      <div class="frow"><span class="fl">Total earned</span><span class="fv inc">${fmt$(G.researchFundsEarned || 0)}</span></div>
+      <div class="frow"><span class="fl">Per successful project</span><span class="fv neu">${fmt$(researchFunding('Euclid'))} avg</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Burn Rate Analysis</div>
+      <div class="frow"><span class="fl">Spend to next grant</span><span class="fv exp">${fmt$(tD*dToG)}</span></div>
+      <div class="frow"><span class="fl">Est. balance at grant</span>
+        <span class="fv" style="color:${projBal<0?'var(--red2)':'var(--green3)'}">${fmt$(projBal)}</span></div>
+    </div>`;
+}
+
+function renderResearch() {
+  const scps = Object.values(G.scps);
+  let html = scps.length?'':'<div class="no-scp">No anomalies to research.</div>';
+  for (const scp of scps) {
+    const iC = resInitCost(scp.cls);
+    const dC = scp.cls==='Keter'?10000:scp.cls==='Euclid'?5000:2000;
+    const dailyR = scp.cls==='Keter'?2600:scp.cls==='Euclid'?1200:500;
+    const sta = scp.research>=100?'done':scp.researching?'active':'idle';
+    const staL = scp.research>=100?'COMPLETE':scp.researching?'ACTIVE':'IDLE';
+    html+=`<div class="ritem">
+      <div class="ri-hd"><span class="ri-id">${scp.id}</span><span class="ri-sta ${sta}">${staL}</span></div>
+      <div style="font-size:9px;color:var(--dim3);margin-bottom:3px">${scp.name} — ${scp.cls}</div>
+      <div class="ri-prog-track"><div class="ri-prog-fill" style="width:${scp.research}%"></div></div>
+      <div class="ri-meta">
+        Progress: <span>${Math.floor(scp.research)}%</span>
+        Init: <span>${fmt$(iC)}</span>
+        Daily: <span>${fmt$(dC)}</span>
+        ${scp.cls==='Safe'
+          ? `Reward: <span>${fmt$(Math.round(iC * 1.75))}</span>`
+          : `Risk: <span>${Math.round(scp.risk*100)}%</span>`}
+      </div>
+      ${scp.research<100?`<div style="margin-top:5px">
+        ${!scp.researching
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iC)||scp.breach||scp.roaming||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`Begin (${fmt$(iC)})`}</button>${scp.roaming?'<span style="font-size:9px;color:var(--blue3);margin-left:6px">Return anomaly to chamber first</span>':''}`
+          :`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>Suspend</button>`}
+      </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">${scp.cls==='Safe'?'✓ Reward secured':'✓ Breach risk reduced 60%'}</div>`}
+    </div>`;
+  }
+  document.getElementById('tc-research').innerHTML = html;
+}
+
+function renderReports() {
+  const allPers = totalPers();
+  const raid = G.chaosRaid;
+  document.getElementById('tc-reports').innerHTML=`
+    <div class="fsec">
+      <div class="fhd">Site Statistics</div>
+      <div class="frow"><span class="fl">Facility</span><span class="fv neu">Site-${String(G.siteNum).padStart(2,'0')}</span></div>
+      <div class="frow"><span class="fl">Day in Operation</span><span class="fv neu">${G.day}</span></div>
+      <div class="frow"><span class="fl">Performance Rating</span><span class="fv neu">${Math.round(G.performance)}%</span></div>
+      <div class="frow"><span class="fl">SCPs Contained</span><span class="fv neu">${Object.keys(G.scps).length}</span></div>
+      <div class="frow"><span class="fl">SCPs Pending Transfer</span><span class="fv neu">${G.scpQueue.length}</span></div>
+    </div>
+    <div class="fsec">
+      <div class="fhd">Incident Records</div>
+      <div class="frow"><span class="fl">Total Breaches</span><span class="fv exp">${G.totalBreaches}</span></div>
+      <div class="frow"><span class="fl">Personnel Casualties</span><span class="fv exp">${G.totalCasualties}</span></div>
+      <div class="frow"><span class="fl">Research Completed</span><span class="fv inc">${G.totalResearch}</span></div>
+      <div class="frow"><span class="fl">Research Funding Earned</span><span class="fv inc">${fmt$(G.researchFundsEarned || 0)}</span></div>
+      <div class="frow"><span class="fl">Active Breaches</span><span class="fv ${G.activeBreaches.length?'exp':'neu'}">${G.activeBreaches.length}</span></div>
+    </div>
+    ${raid ? `
+    <div class="fsec">
+      <div class="fhd">Chaos Insurgency ${raid.warning ? 'Warning' : 'Raid'}</div>
+      ${raid.warning ? `
+      <div class="frow"><span class="fl">Status</span><span class="fv" style="color:var(--orange3)">Warning — Hostiles Inbound</span></div>
+      <div class="frow"><span class="fl">Time Until Breach</span><span class="fv" style="color:var(--orange3)">${raid.warningRemaining.toFixed(1)}h</span></div>
+      <div class="frow"><span class="fl">Pre-Deploy Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_EARLY_COST)}</span></div>
+      <div class="frow"><span class="fl">Standard Response Cost</span><span class="fv exp">${fmt$(CHAOS_RAID_COST)}</span></div>
+      <div style="margin-top:6px">
+        ${raid.prepaid
+          ? `<div style="font-size:10px;color:var(--green3);line-height:1.6">✓ Response teams pre-deployed. They will auto-engage when hostiles breach. Response window: ${CHAOS_RAID_DURATION_EARLY}h.</div>`
+          : `<button class="sc-btn danger" onclick="stopChaosRaid()" ${G.paused?'disabled':''}>Pre-Deploy Response Teams (${fmt$(CHAOS_RAID_EARLY_COST)})</button>`}
+      </div>` : `
+      <div class="frow"><span class="fl">Status</span><span class="fv exp">${raid.responseActive ? 'Response in progress' : 'Hostiles on-site'}</span></div>
+      <div class="frow"><span class="fl">Elapsed</span><span class="fv neu">${raid.elapsed.toFixed(1)}h</span></div>
+      <div class="frow"><span class="fl">Response Time</span><span class="fv neu">${raid.responseActive ? `${raid.responseRemaining.toFixed(1)}h remaining` : 'Not initiated'}</span></div>
+      <div class="frow"><span class="fl">Elimination Cost</span><span class="fv exp">${raid.prepaid ? `Pre-paid ${fmt$(CHAOS_RAID_EARLY_COST)}` : fmt$(CHAOS_RAID_COST)}</span></div>
+      <div style="margin-top:6px">
+        ${!raid.responseActive
+          ? `<button class="sc-btn danger" onclick="stopChaosRaid()" ${G.paused?'disabled':''}>Stop the raid and eliminate hostiles (${fmt$(CHAOS_RAID_COST)})</button>`
+          : `<div style="font-size:10px;color:var(--txt2);line-height:1.6">Containment teams are engaged. Loose SCPs are being swept up alongside the CI raid while the response timer runs.</div>`}
+      </div>`}
+    </div>` : ''}
+    <div class="fsec">
+      <div class="fhd">Current Personnel (${allPers} total)</div>
+      ${Object.entries(DEPT_DEFS).map(([dk,def])=>{
+        const cnt = G.depts[dk].roles.reduce((s,r)=>s+r.count,0);
+        return `<div class="frow"><span class="fl">${def.label}</span><span class="fv neu">${cnt}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="fsec">
+      <div class="fhd">Performance Factors</div>
+      <div style="font-size:10px;color:var(--txt);line-height:2">
+        Each breach: −5% · Each casualty: −1%<br>
+        Research complete: +5% · Recontainment: +3%<br>
+        Daily recovery: +1%/day · Budget deficit: −4%/day<br>
+        Research funding: extra income on completion · Power systems add a daily operating cost
+      </div>
+    </div>`;
+}
+
+function renderLog() {
+  document.getElementById('log').innerHTML =
+    G.log.slice(0,100).map(e=>`<div class="lrow ${e.type}"><span class="lt">${e.t}</span><span class="lm">${e.msg}</span></div>`).join('');
+}
+
+
+function applyResponsiveMode() {
+  const mobile = window.matchMedia('(max-width: 860px)').matches;
+  document.body.classList.toggle('mobile', mobile);
+
+  const panels = ['leftPanel', 'centerPanel', 'rightPanel'];
+  const log = document.getElementById('log');
+  const mobileNav = document.getElementById('mobileNav');
+
+  if (!mobile) {
+    panels.forEach(id => document.getElementById(id).classList.add('active'));
+    log.classList.remove('mobile-open');
+    document.querySelectorAll('#mobileNav button').forEach(btn => btn.classList.remove('on'));
+    return;
+  }
+
+  if (!mobileSection) mobileSection = 'centerPanel';
+  const target = panels.includes(mobileSection) ? mobileSection : 'centerPanel';
+  panels.forEach(id => document.getElementById(id).classList.toggle('active', id === target));
+  log.classList.toggle('mobile-open', mobileSection === 'log');
+
+  document.querySelectorAll('#mobileNav button').forEach(btn => {
+    btn.classList.toggle('on', btn.dataset.panel === mobileSection);
+  });
+}
+
+function setMobileSection(id) {
+  mobileSection = id;
+  applyResponsiveMode();
+  if (id === 'log') {
+    document.getElementById('log').scrollTop = 0;
+  }
+}
+
+function renderHeader() {
+  document.getElementById('hDay').textContent = G.day;
+  document.getElementById('hTime').textContent = hr2(G.hour);
+  document.getElementById('hScps').textContent = Object.keys(G.scps).length;
+  document.getElementById('hPers').textContent = totalPers();
+  const bEl = document.getElementById('hBudget');
+  bEl.textContent = fmt$(G.budget);
+  bEl.className = 'hst-val '+(G.budget<0?'red':G.budget<200000?'yellow':'green');
+  document.getElementById('hCost').textContent = fmt$(dailyCost());
+  const p = G.performance;
+  const pf = document.getElementById('perfFill');
+  pf.style.width = p+'%';
+  pf.style.background = p>=70?'var(--green3)':p>=40?'var(--orange3)':'var(--red2)';
+  document.getElementById('perfVal').textContent = Math.round(p)+'%';
+}
+
+function renderAll() {
+  renderHeader();
+  renderPersonnel();
+  renderSCPs();
+  renderRaidOverlay();
+  updateRaidTopBar();
+  if (curTab==='finance') renderFinance();
+  else if (curTab==='research') renderResearch();
+  else renderReports();
+}
+
+// ══════════════════════════════════════════════════════
+// TABS & SPEED
+// ══════════════════════════════════════════════════════
+function setTab(t) {
+  curTab = t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('on'));
+  document.querySelectorAll('.tcont').forEach(el=>el.classList.remove('on'));
+  document.querySelector(`.tab[onclick="setTab('${t}')"]`).classList.add('on');
+  document.getElementById(`tc-${t}`).classList.add('on');
+  if (document.body.classList.contains('mobile')) {
+    setMobileSection('rightPanel');
+  }
+  renderAll();
+}
+
+function setSpeed(s) {
+  G.speed = s;
+  G.paused = s===0;
+  document.querySelectorAll('.spd-btn').forEach(b=>b.classList.remove('on'));
+  const activeBtn = document.getElementById(`spd${s}`);
+  if (activeBtn) activeBtn.classList.add('on');
+  clearInterval(gameInt);
+  if (!G.paused && !G.over) {
+    const speedIntervals = {1: 6000, 3: 2000, 5: 1200, 10: 600};
+    gameInt = setInterval(tick, speedIntervals[s] || 6000);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// SITE SELECTION & START
+// ══════════════════════════════════════════════════════
+window.addEventListener('resize', applyResponsiveMode);
+(function buildGrid() {
+  const g = document.getElementById('siteGrid');
+  for (let i=1;i<=65;i++) {
+    const b = document.createElement('button');
+    b.className = 'sb';
+    b.textContent = String(i).padStart(2,'0');
+    b.onclick = () => {
+      selSite = i;
+      document.querySelectorAll('.sb').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+      document.getElementById('startBtn').disabled = false;
+    };
+    g.appendChild(b);
+  }
+})();
+
+function startGame() {
+  if (!selSite) return;
+  document.getElementById('startModal').style.display = 'none';
+  initState(selSite);
+  const sn = String(selSite).padStart(2,'0');
+  document.getElementById('hSite').textContent = `SITE-${sn}`;
+  addLog(`Site-${sn} initialized. Director access confirmed. Three anomalies in containment.`, 'ok');
+  addLog('SCP-173 (Euclid), SCP-096 (Euclid), SCP-131 (Safe) — containment nominal.', 'info');
+  addLog('First O5 Council budget disbursement in 30 days. Manage finances carefully.', 'o5');
+  addLog('Research your SCPs to reduce long-term breach risk. Monitor personnel counts.', 'warn');
+  renderAll();
+  applyResponsiveMode();
+  setSpeed(1);
+}
+applyResponsiveMode();
+</script>
+</body>
+</html>
