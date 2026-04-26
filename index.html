@@ -1105,6 +1105,7 @@ function renderRaidOverlay() {
         ? `⚡ Pre-Deploy Response Teams (${fmt$(CHAOS_RAID_EARLY_COST)})`
         : `Insufficient Funds — Need ${fmt$(CHAOS_RAID_EARLY_COST)}`;
     }
+    document.querySelector('.ro-dismiss').textContent = raid.prepaid ? '✕ Close' : '✕ Acknowledge and Ignore';
     return;
   }
 
@@ -1145,6 +1146,7 @@ function renderRaidOverlay() {
       ? `⚡ Deploy Emergency Response (${fmt$(CHAOS_RAID_COST)})`
       : `Insufficient Funds — Need ${fmt$(CHAOS_RAID_COST)}`;
   }
+  document.querySelector('.ro-dismiss').textContent = raid.responseActive ? '✕ Close' : '✕ Acknowledge and Ignore';
 }
 
 // ── Phase 1: start the 0.5h warning window ─────────────────────────────────
