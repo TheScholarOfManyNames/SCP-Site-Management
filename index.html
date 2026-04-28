@@ -1594,7 +1594,7 @@ function tickResearch() {
       for (let i = 0; i < casualties; i++) causeCasualty('research');
       G.dailyResearchCasualties += casualties;  // ← CHANGE 2: track daily casualties
 
-      if (scp.cls==='Keter' || G.dailyResearchCasualties >= 7) {
+      if (G.dailyResearchCasualties >= 7) {
         scp.researching = false;
         const reason = G.dailyResearchCasualties >= 7
           ? `critical casualty threshold reached (${G.dailyResearchCasualties} today)`
