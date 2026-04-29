@@ -201,14 +201,6 @@ body::after{
   0%,100%{box-shadow:0 0 6px rgba(180,0,0,.25)}
   50%{box-shadow:0 0 18px rgba(200,0,0,.55)}
 }
-.scard.roaming{
-  border-color:var(--blue2);
-  animation:rpulse 2.2s infinite;
-}
-@keyframes rpulse{
-  0%,100%{box-shadow:0 0 5px rgba(0,80,160,.18)}
-  50%{box-shadow:0 0 14px rgba(0,120,220,.42)}
-}
 .sc-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
 .sc-id{color:var(--txt4);font-size:14px;font-weight:700;font-family:var(--mono)}
 .sc-hd-r{display:flex;align-items:center;gap:6px}
@@ -274,7 +266,6 @@ body::after{
 }
 .breach-tag{color:var(--red2);font-size:10px;font-weight:700;animation:blink .8s infinite;font-family:var(--mono)}
 .contained-tag{color:var(--green3);font-size:10px;font-family:var(--mono)}
-.roaming-tag{color:var(--blue3);font-size:10px;font-weight:700;font-family:var(--mono)}
 
 /* ── RIGHT PANEL ── */
 .tabs{display:flex;gap:1px;margin-bottom:8px}
@@ -870,7 +861,7 @@ function initState(siteNum) {
   const scps = {};
   for (const id of ["SCP-173","SCP-096","SCP-131"]) {
     const d = SCP_DB[id];
-    scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+    scps[id] = { ...d, id, breach:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:1, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   }
   G = {
     siteNum, day:1, hour:0, budget:3000000,
@@ -960,11 +951,11 @@ function insufficientPersonnel(kind, need) {
 function triggerMassContainmentBreach() {
   if (G.containmentCollapseActive) return;
   G.containmentCollapseActive = true;
-  addLog('MASS CONTAINMENT BREACH: Containment Division offline — all SCPs are breaching.', 'breach');
-  notify('⚠ MASS CONTAINMENT BREACH', 'Containment Division has been depleted. All SCPs are now breaching.', 'breach', 10000);
+  addLog('MASS CONTAINMENT BREACH: Containment Division offline — non-Safe anomalies are breaching.', 'breach');
+  notify('⚠ MASS CONTAINMENT BREACH', 'Containment Division has been depleted. Non-Safe anomalies are now breaching.', 'breach', 10000);
   let triggered = 0;
   for (const [id, scp] of Object.entries(G.scps)) {
-    if (!scp.breach && !scp.roaming) { triggerBreach(id); triggered++; }
+    if (!scp.breach) { triggerBreach(id, 'collapse'); triggered++; }
   }
   if (triggered > 0) renderAll();
 }
@@ -1206,7 +1197,7 @@ function beginRaidSCPSweep() {
 
   const looseScps = [];
   for (const scp of Object.values(G.scps)) {
-    if ((scp.breach || scp.roaming) && !scp.recontainPending) {
+    if (scp.breach && !scp.recontainPending) {
       scp.recontainPending = true;
       scp.recontainDuration = recontainDurationHours(scp.cls);
       scp.recontainRemaining = scp.recontainDuration;
@@ -1280,10 +1271,10 @@ function advanceChaosRaidHalfHour() {
   // ── Active raid damage tick ──────────────────────────────────────────────
   if (!raid.active) return false;
   raid.elapsed += 0.5;
-  const candidates = Object.values(G.scps).filter(s => !s.breach && !s.roaming);
+  const candidates = Object.values(G.scps).filter(s => !s.breach);
   if (candidates.length) {
     const chosen = candidates[Math.floor(Math.random() * candidates.length)];
-    triggerBreach(chosen.id);
+    triggerBreach(chosen.id, 'chaos');
   }
   const hostileHits = Math.max(1, Math.ceil(totalPers() * 0.03));
   for (let i = 0; i < hostileHits; i++) {
@@ -1374,10 +1365,10 @@ function causeCasualty(source) {
 // ══════════════════════════════════════════════════════
 function breachChance(scp) {
   // Class-first breach model:
-  // Safe is least likely, Keter sits in the middle,
-  // and Euclid is most likely to breach under routine containment pressure.
+  // Safe does not breach during routine operations.
+  // Euclid and Keter retain their intended breach behavior.
   const classBase = {
-    Safe: 0.20000,
+    Safe: 0,
     Keter: 0.00500,
     Euclid: 0.01000,
   }[scp.cls] || 0.001;
@@ -1405,19 +1396,20 @@ function breachCasualtyChance(scp) {
   return Math.min(0.95, Math.max(0, (classBase + threat) * researchMitigation));
 }
 
-function triggerBreach(id) {
-  const scp = G.scps[id];
-  if (scp.breach || scp.roaming) return;
-
-  // Safe-class SCPs roam the facility instead of breaching
-  if (scp.cls === 'Safe') {
-    scp.roaming = true;
-    scp.contained = false;
-    addLog(`ROAMING: ${id} (Safe) — ${scp.name} has left containment and is roaming the facility.`, 'info');
-    notify(`🔵 ROAMING: ${id}`, `${scp.name} is wandering the facility. Recontainment is available at no cost.`, 'info', 9000);
-    updateBanner();
-    return;
+function tickBreaches() {
+  for (const [id, scp] of Object.entries(G.scps)) {
+    if (scp.breach || scp.cls === 'Safe') continue;
+    const chance = breachChance(scp);
+    if (chance > 0 && Math.random() < chance) triggerBreach(id, 'routine');
   }
+}
+
+function triggerBreach(id, source = 'routine') {
+  const scp = G.scps[id];
+  if (!scp || scp.breach) return;
+
+  // Safe-class SCPs only breach during Chaos Insurgency raids.
+  if (scp.cls === 'Safe' && source !== 'chaos') return;
 
   scp.breach = true;
   scp.contained = false;
@@ -1436,26 +1428,20 @@ function triggerBreach(id) {
 }
 
 function recontainDurationHours(cls) {
-  return cls === 'Safe' ? 0.5 : cls === 'Euclid' ? 2 : 3;
+  return cls === 'Euclid' ? 2 : 3;
 }
 
 function completeRecontainment(id) {
   const scp = G.scps[id];
   if (!scp || !scp.recontainPending) return;
-  const wasRoaming = scp.roaming;
   scp.recontainPending = false;
   scp.recontainRemaining = 0;
   scp.recontainDuration = 0;
   scp.breach = false;
-  scp.roaming = false;
   scp.contained = true;
   G.activeBreaches = G.activeBreaches.filter(x=>x!==id);
-  if (wasRoaming) {
-    addLog(`${id} guided back to containment chamber.`, 'ok');
-  } else {
-    G.performance = Math.min(100, G.performance+3);
-    addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
-  }
+  G.performance = Math.min(100, G.performance+3);
+  addLog(`${id} recontained. Cost: ${fmt$(scp.rCost)}`, 'ok');
   notify('✓ Recontainment Complete', `${id} has been secured.`, 'ok', 7000);
   updateBanner();
   renderAll();
@@ -1512,18 +1498,6 @@ function recontain(id) {
   if (scp.recontainPending) return;
   if (!hasRecontainmentTeam()) { insufficientPersonnel('Security Department / MTF', 'No recontainment is possible until either the Security Department or Mobile Task Forces have personnel available.'); return; }
 
-  // Roaming Safe SCPs: free recontainment, no budget charge
-  if (scp.roaming) {
-    scp.recontainPending = true;
-    scp.recontainDuration = recontainDurationHours(scp.cls);
-    scp.recontainRemaining = scp.recontainDuration;
-    addLog(`Recontainment initiated for roaming ${id} — no cost.`, 'info');
-    notify('🔵 Recontainment initiated', `Personnel guiding ${id} back to its chamber.`, 'info', 6000);
-    ensureRecontainTicker();
-    renderAll();
-    return;
-  }
-
   if (!scp.breach) return;
   if (G.budget < scp.rCost) {
     notify('Insufficient Funds', `Recontainment requires ${fmt$(scp.rCost)}`, 'breach'); return;
@@ -1550,7 +1524,7 @@ function resInitCost(cls) { return Math.round((cls==='Safe'?25000:cls==='Euclid'
 function beginResearch(id) {
   if (G.paused) return;
   const scp = G.scps[id];
-  if (scp.researching||scp.research>=100||scp.breach||scp.roaming||G.chaosRaid?.active) return;
+  if (scp.researching||scp.research>=100||scp.breach||G.chaosRaid?.active) return;
   if (!hasResearchers()) { insufficientPersonnel('Scientific Department', 'No research can begin until the Scientific Department has at least one researcher.'); return; }
   if (!scp.researchPaid) {
     const c = resInitCost(scp.cls);
@@ -1577,7 +1551,7 @@ function stopResearch(id) {
 function tickResearch() {
   if (G.chaosRaid?.active) return;
   for (const [id, scp] of Object.entries(G.scps)) {
-    if (!scp.researching||scp.research>=100||scp.breach||scp.roaming) continue;
+    if (!scp.researching||scp.research>=100||scp.breach) continue;
     const rc = researchers();
     if (!rc) {
       scp.researching = false;
@@ -1638,7 +1612,7 @@ function addSCP() {
     return;
   }
   G.scpQueue.shift();
-  G.scps[id] = { ...d, id, breach:false, roaming:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
+  G.scps[id] = { ...d, id, breach:false, research:0, researching:false, researchInitCost:0, researchPaid:false, contained:true, addedDay:G.day, recontainPending:false, recontainRemaining:0, recontainDuration:0 };
   G.nextScpDay = G.day + 20;
   addLog(`NEW ANOMALY TRANSFERRED: ${id} (${d.cls}) — "${d.name}"`, 'newscp');
   notify(`📦 ANOMALY TRANSFERRED`,
@@ -1685,6 +1659,7 @@ function tick() {
     G.dailyResearchCasualties = 0;  // ← CHANGE 3: reset at the start of each new day
     if (!G.chaosRaid?.active) tickResearch();
     suspendResearchIfNoScientists();
+    if (!G.chaosRaid?.active && !G.chaosRaid?.warning) tickBreaches();
     G.performance = Math.min(100, G.performance + 1);
     if (!G.chaosRaid && Math.random() < 0.04) triggerChaosRaidWarning();
     if (G.day >= G.nextGrantDay) processGrant();
@@ -1798,12 +1773,10 @@ function renderSCPs() {
     const barW = Math.min(100, pct*5);
     const iCost = resInitCost(scp.cls);
     const dailyR = scp.cls==='Keter'?2600:scp.cls==='Euclid'?1200:500;
-    const cardClass = scp.breach ? ' breaching' : scp.roaming ? ' roaming' : '';
+    const cardClass = scp.breach ? ' breaching' : '';
     const statusTag = scp.breach
       ? '<span class="breach-tag">⚠ BREACH</span>'
-      : scp.roaming
-        ? '<span class="roaming-tag">🔵 ROAMING</span>'
-        : '<span class="contained-tag">● CONTAINED</span>';
+      : '<span class="contained-tag">● CONTAINED</span>';
     html+=`<div class="scard${cardClass}">
       <div class="sc-hd">
         <span class="sc-id">${scp.id}</span>
@@ -1817,7 +1790,6 @@ function renderSCPs() {
       <div class="sc-grid">
         ${scp.cls==='Safe' ? '' : `<span class="sg-l">Breach Risk/Day</span><span class="sg-v">${pct.toFixed(1)}%</span>`}
         <span class="sg-l">Contain Cost</span><span class="sg-v">${fmt$(scp.cCost)}/day</span>
-        <span class="sg-l">Recontain Cost</span><span class="sg-v">${scp.cls==='Safe'?'Free':fmt$(scp.rCost)}</span>
         <span class="sg-l">Research</span><span class="sg-v">${Math.floor(scp.research)}%</span>
       </div>
       ${scp.cls==='Safe'
@@ -1827,15 +1799,14 @@ function renderSCPs() {
       <div class="res-lbl">Research progress: ${Math.floor(scp.research)}%${scp.researching?' [ACTIVE]':scp.research>=100?' [COMPLETE]':''}</div>
       <div class="sc-btns">
         ${scp.breach&&!scp.recontainPending?`<button class="sc-btn danger" onclick="recontain('${scp.id}')" ${hasRecontainmentTeam()&&!G.paused?'':'disabled'}>⚡ Recontain (${fmt$(scp.rCost)})</button>`:''}
-        ${scp.roaming&&!scp.recontainPending?`<button class="sc-btn" style="border-color:var(--blue2);color:var(--blue3)" onclick="recontain('${scp.id}')" ${hasRecontainmentTeam()&&!G.paused?'':'disabled'}>↩ Return to Chamber (Free)</button>`:''}
         ${scp.recontainPending?`
           <div class="recontain-wrap">
-            <div class="recontain-lbl">${scp.roaming?'Returning to chamber':'Recontainment in progress'}</div>
+            <div class="recontain-lbl">Recontainment in progress</div>
             <div class="recontain-track"><div class="recontain-fill" style="width:${Math.max(0, Math.min(100, ((scp.recontainDuration - scp.recontainRemaining) / scp.recontainDuration) * 100))}%"></div></div>
-            <div class="recontain-sub">${scp.roaming?'Personnel escorting anomaly back to containment chamber.':'Containment team en route. Active breach status remains until complete.'}</div>
+            <div class="recontain-sub">Containment team en route. Active breach status remains until complete.</div>
           </div>`:''}
-        ${!scp.breach&&!scp.roaming&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iCost)||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`🔬 Research (${fmt$(iCost)})`}</button>`:''}
-        ${scp.researching&&!scp.breach&&!scp.roaming?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
+        ${!scp.breach&&scp.research<100&&!scp.researching?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iCost)||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`🔬 Research (${fmt$(iCost)})`}</button>`:''}
+        ${scp.researching&&!scp.breach?`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>⏸ Suspend Research</button>`:''}
         ${scp.research>=100?`<span style="color:var(--green3);font-size:9px">${scp.cls==='Safe'?'✓ Safe-class reward secured':'✓ Breach risk reduced 60%'}</span>`:''}
       </div>
     </div>`;
@@ -1909,7 +1880,7 @@ function renderResearch() {
       </div>
       ${scp.research<100?`<div style="margin-top:5px">
         ${!scp.researching
-          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iC)||scp.breach||scp.roaming||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`Begin (${fmt$(iC)})`}</button>${scp.roaming?'<span style="font-size:9px;color:var(--blue3);margin-left:6px">Return anomaly to chamber first</span>':''}`
+          ?`<button class="sc-btn" onclick="beginResearch('${scp.id}')" ${(scp.researchPaid?G.budget<dailyR:G.budget<iC)||scp.breach||!hasResearchers()||G.chaosRaid?.active||G.paused?'disabled':''}>${scp.researchPaid?'▶ Resume Research':`Begin (${fmt$(iC)})`}</button>`
           :`<button class="sc-btn" onclick="stopResearch('${scp.id}')" ${G.paused?'disabled':''}>Suspend</button>`}
       </div>`:`<div style="color:var(--green3);font-size:9px;margin-top:4px">${scp.cls==='Safe'?'✓ Reward secured':'✓ Breach risk reduced 60%'}</div>`}
     </div>`;
